@@ -43,4 +43,6 @@ On 2026-10-29, the user deferred the long-session test (delay, memory, pause/res
 
 ## Handoff
 
+On 2026-10-29, the user deferred the security-review repairs and additional hardening as [future security work](docs/roadmap.md#future-security-work--deferred-by-the-user). Keep SEC-01/02/03 open and their evidence in [the review](docs/security-review.md). Do not initiate these repairs or tooling upgrades until the user resumes that work; deferral does not establish security or close release risks.
+
 After each meaningful development task, update [CONTEXT.md](CONTEXT.md) with completed work, actual verification, limitations/blockers, and next steps. Keep it concise; link to specifications instead of copying them. Update authoritative guides when behavior changes. Do not mark planned tests as passed or replace missing measurements with targets.

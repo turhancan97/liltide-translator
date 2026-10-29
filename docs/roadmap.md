@@ -15,7 +15,7 @@ Capture CLI and translation PoC implemented; macOS lecture capture/playback is u
 
 - [x] Device enumeration/selection and actionable local diagnostics (capture permissions/routing need live validation).
 - [ ] System audio capture on each target OS with original audio still audible.
-- [x] Optional microphone capture path implemented; no silent fallback or mixing (hardware validation pending).
+- [ ] Optional microphone capture path implemented; no mixing intended, but the GUI can silently replace a lost virtual input with a microphone after Refresh (SEC-01 repair and hardware validation pending).
 - [x] Paced PCM16 WAV input using the shared processing pipeline (offline tested).
 - [x] Azure continuous Polish transcription and English translation adapter (fake SDK tested; live service unverified).
 - [x] Provisional display updates and finalized-segment deduplication (offline tested).
@@ -34,6 +34,17 @@ Deferred on 2026-10-29 because the user cannot perform these tasks right now. No
 - [ ] **Long-session test:** Run a 30-minute lecture session; check caption delay, memory use, pause/resume, transcript exports, and one network interruption/recovery.
 - [ ] **Accuracy review:** Compare a few minutes against the original audio/reference transcript, focusing on missing words, numbers, and preservation of meaning in the English translation.
 - [ ] **Windows/Linux validation:** Test installation, audio-source selection, system capture, and audible playback on both platforms; record actual OS/runtime/backend versions and setup limitations.
+
+## Future security work — deferred by the user
+
+Deferred on 2026-10-29 after the initial [security review](security-review.md). These findings remain open; no repair or delivery date is established. Implement when the user resumes this work, in this priority order:
+
+- [ ] **SEC-01 — Prevent unintended microphone selection:** Clear a lost GUI device selection and require deliberate reselection before Start. Verify with fake devices, including reordered and empty lists.
+- [ ] **SEC-02 — Update installer tooling:** Upgrade affected pip environments to a patched release and rerun dependency audits. The review found six distinct pip 25.2 advisories with installation/download prerequisites; no project environment was upgraded.
+- [ ] **SEC-03 — Sanitize terminal/text output:** Neutralize terminal control characters in captions, device/status output, and human-readable exports; preserve Polish Unicode and verify with in-memory tests.
+- [ ] **Additional hardening:** Evaluate dependency/secret scanning in CI, repeatable dependency snapshots, a private reporting contact, minimal child-process environments, deliberate text-history retention, Windows export ACLs, and native dependency coverage. These are review suggestions, not demonstrated exploits.
+
+Detailed evidence, prerequisites, limitations, and repair acceptance criteria remain in the review. Deferral does not resolve the findings or establish release security.
 
 ## Deferred
 
