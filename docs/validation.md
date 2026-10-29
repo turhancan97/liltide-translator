@@ -152,3 +152,72 @@ New tests use fake clocks/providers and fake SDK operations. Cover exact cumulat
 Gap exports are tested through both sinks and a full fake-provider CLI run: same export session across reconnect, finalized data retained, conservative/non-overlapping checkpoint and recovery intervals, synced checkpoint visible before retry wait, no credentials/caption text in gap records, and unchanged cloud config between attempts. Unknown errors never use heuristic error-text matching. Known fatal errors do not trigger retry or paid fallback.
 
 These tests establish application control flow and persistence, not live SDK detection timing, real network recovery, measured missing-audio coverage, other-platform hardware behavior, or 30-minute stability. Gap times express possible missing/unfinalized audio, not exact downtime or translation latency. Manual live interruption steps are in the setup guide and require explicit operator invocation against confirmed F0.
+
+
+## User-confirmed live recovery — 2026-10-29
+
+The user confirmed completing the Wi-Fi interruption checklist: finalized caption, disconnect, visible reconnect status, restored network, resumed captions, and Ctrl+C shutdown. This is a user-operated macOS test, not an independent agent live run.
+
+Read-only inspection of the corresponding local recovery exports found **3 segment records and 4 gap records**, one export session, and two successful recognizer-context prefixes. Captions occur after gap records. UTF-8 parsing, exact text/JSONL content/timestamp correspondence, expected event types, unique segment IDs, and nonnegative valid intervals passed. Gap reasons include `connection_failure` and `network_disconnect`. No files modified, private transcript text retained in project docs, or identifiers copied.
+
+The artifacts support working export continuity and resumed caption output; they do not establish an exact retry count, exact network detection/downtime, complete audio coverage, measured translation latency/accuracy, other-platform behavior, or a 30-minute pass. Those checks remain separate.
+
+
+## Caption arrival instrumentation — 2026-10-29
+
+Current full suite: **157 passed** with `python -m pytest -q`; wheel build, dependency check, CLI help, and whitespace checks passed. Same development environment; no new dependencies or live Azure timing calls.
+
+SDK callback tests now verify non-null timestamp capture. Deterministic tests separate callback entry, session handling, and later export/render cost; validate nearest-rank p95 and empty/partial samples; preserve/flag negative source-end estimates; distinguish handler-only and translated-caption coverage; guard against artificial negative dispatch from rounding; and verify provisional timing/deduplication plus shared session-clock continuity after a recovery/new context. Timing survives process serialization and is added to UTF-8 JSONL/text without exporting raw monotonic references. Full fake-provider CLI tests cover optional display and summaries on success or error; local-only meter rejects the option.
+
+This verifies arithmetic and measurement plumbing, not live latency, source-clock alignment, capture timing, terminal paint time, translation accuracy, or 30-minute stability. Source-end delay remains an estimate affected by startup/buffering/pacing/resampling. Existing private exports have no new measurements and were not rewritten. A reference-aligned recording evaluation remains necessary for benchmark claims.
+
+
+## User timing export inspection — 2026-10-29
+
+The current user-generated timing file contains **one finalized caption**, with English, `provider_callback` timing, no gap/blank/duplicate records, valid UTF-8/JSONL and a newline-terminated complete record. Checked equations: arrival 30,783 ms minus mapped phrase end 28,551 ms = **2,232 ms estimated final delay**; handling 30,867 ms minus arrival = **84 ms local dispatch**; final arrival minus first observed provisional arrival 3,392 ms = **27,391 ms provisional-to-final**. Phrase duration is **27,120 ms**. All arithmetic matches the recorded fields; no negative estimate in this sample.
+
+This supplies one live instrumented sample reported by the user, not independent source/audio alignment or a latency benchmark. Median/p95/max would all equal the single observation and provide no useful distribution evidence. The long phrase and provisional-to-final interval show that segmentation/stabilization still deserves evaluation. No transcript text/identifiers retained; the original export was not modified and remains excluded from Git.
+
+
+## Additional timing comparison — 2026-10-29
+
+Previous saved snapshot: one callback-timed final, estimated source-end delay 2,232 ms, local dispatch 84 ms, provisional-to-final 27,391 ms, phrase duration 27,120 ms. Current snapshot: four callback-timed finals, no gaps/blanks/duplicate IDs, one session and ordered/non-overlapping intervals. All timing equations match. Current estimated delay median/min/max: 1,226/1,023/1,545 ms; dispatch median/max: 37.5/57 ms; provisional-to-final median: 5,371.5 ms; phrase-duration median/max: 5,760/20,880 ms. With four observations, nearest-rank p95 equals the maximum.
+
+The speech text and covered durations differ, and configuration/segmentation settings are not recorded in these exports. Therefore these are descriptive samples rather than a matched comparison or proof of improvement caused by the optional setting. First-phrase under-segmentation persists. Original files unchanged; no private transcript content or identifiers retained here.
+
+
+## User-confirmed same-recording comparison — 2026-10-29
+
+The user confirmed using the same recording. Current snapshots cover approximately 30.20 and 30.54 seconds, with 73 and 72 recognized source words and about 97.9% normalized token similarity. This similarity compares model outputs, not recognition accuracy. Small wording/coverage differences remain; one short phrase is absent from one output, requiring reference audio to attribute the difference. Every final has English; neither run contains gap/blank/duplicate-ID records; timing arithmetic passes.
+
+| Metric | `exports1` (2 finals) | `exports` (4 finals) |
+| --- | --- | --- |
+| Median estimated source-end delay | 3,259 ms | 1,401.5 ms |
+| Median first observed provisional-to-final | 14,349.5 ms | 6,141.5 ms |
+| Median phrase length | 13,780 ms | 6,560 ms |
+| Longest phrase | 13,920 ms | 8,520 ms |
+| Median local dispatch | 51.5 ms | 48 ms |
+
+The second run is descriptively more responsive in this pair. Settings are not recorded in the files, so file-to-setting attribution requires user confirmation. Single short runs, unequal segmentation and small source differences do not establish repeatable benchmark improvement or unchanged translation quality. No private files modified or transcript text/identifiers copied into project docs.
+
+
+### Segmentation setting attribution
+
+The user subsequently confirmed that `exports/timing-test.jsonl` used `--segmentation-silence-ms 300`. Its better timing estimates in the short same-recording comparison can therefore be associated with that run's configuration. The `exports1` setting is still not explicitly confirmed. This does not establish causality, repeatability, or an accuracy improvement; retain the current opt-in setting and verify the source-content difference before changing defaults.
+
+
+## Deferred future validation — 2026-10-29
+
+At the user's request, the following checks are deferred because they cannot perform them now. No dates or completion claims are assigned. Retain the procedures above for future execution, while allowing other authorized implementation work to continue:
+
+- **30-minute long-session test:** Caption delay, memory use, pause/resume, exports, and one network interruption/recovery.
+- **Reference-audio accuracy review:** A few minutes focused on missing words, numbers, and preservation of meaning.
+- **Windows/Linux validation:** Installation/setup, system-audio capture, and audible playback, with actual environment details recorded.
+
+These deferrals do not establish benchmark latency, accuracy, long-session reliability, or cross-platform release support. Resume the checks when the user authorizes/has capacity; do not repeatedly present them as immediate required tasks.
+
+## Run-configuration metadata — 2026-10-29
+
+Full suite: **173 passed** (`python -m pytest -q`); wheel build, dependency check, and whitespace check passed. New offline tests cover text/JSONL headers visible before captions, default versus requested 300 ms settings, shared session IDs, invalid metadata rejection, no files/sidecars without export flags, header-failure cleanup, and failure before capture/provider construction. Fake CLI runs cover system/microphone/file inputs with both settings and verify absence of credentials, region, device identifiers, and file paths. Recovery tests verify exactly one header across reconnects. Legacy standalone exporters remain headerless unless metadata is supplied; historical user files are unchanged.
+
+These checks validate serialization/lifecycle and requested settings, not live Azure configuration application, platform capture, translation quality, or stability. No live cloud calls or private export edits were performed. Deferred long-session, reference accuracy, and Windows/Linux checks remain deferred.

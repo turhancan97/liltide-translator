@@ -41,6 +41,14 @@ class Caption:
     polish: str
     english: str | None
     final: bool
+    callback_monotonic: float | None = field(default=None, repr=False)
+    arrival_ms: int | None = None
+    handled_ms: int | None = None
+    timing_source: str | None = None
+    dispatch_delay_ms: int | None = None
+    first_provisional_arrival_ms: int | None = None
+    provisional_to_final_ms: int | None = None
+    estimated_final_delay_ms: int | None = None
 
     @property
     def has_content(self):
@@ -64,7 +72,7 @@ class ProviderFailure:
         return ProviderError(self.message, reason=self.reason, retryable=self.retryable)
 
 
-def caption_from_result(result, final):
+def caption_from_result(result, final, callback_monotonic=None):
     start = int(result.offset / 10000)
     duration = result.duration
     milliseconds = int(duration.total_seconds() * 1000) if hasattr(duration, "total_seconds") else int(duration / 10000)
@@ -72,7 +80,7 @@ def caption_from_result(result, final):
     if english is not None and not english.strip():
         english = None
     return Caption(str(result.offset), start, start + milliseconds,
-                   result.text or "", english, final)
+                   result.text or "", english, final, callback_monotonic=callback_monotonic)
 
 
 def cancellation_message(code):
@@ -134,11 +142,12 @@ def _azure_worker(config, incoming, events, errors, acknowledged):
                 disconnected.set()
         connection.disconnected.connect(on_disconnect)
         def on_result(event, final):
+            arrived = time.monotonic()  # SDK callback entry, before decoding and IPC.
             try:
                 result = event.result
                 if result.reason == sdk.ResultReason.NoMatch:
                     return
-                caption = caption_from_result(result, final)
+                caption = caption_from_result(result, final, arrived)
                 if caption.has_content:
                     emit(caption, required=final)
             except Exception:

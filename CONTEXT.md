@@ -4,7 +4,7 @@ Last updated: 2026-10-29 (Europe/Prague).
 
 ## Current milestone
 
-Milestone 3: exports, bounded recovery, and gap records implemented and offline-tested. Live network-interruption and 30-minute validation remain open. Live macOS translation is user-confirmed; quantitative quality/latency validation remains open. Cross-platform capture/playback validation is still incomplete. The approved scope and durable rules are in [AGENTS.md](AGENTS.md); the milestone sequence is in the [roadmap](docs/roadmap.md).
+Milestone 3: exports, bounded recovery, gap records, and caption arrival instrumentation implemented and offline-tested. Live macOS network-interruption recovery is user-confirmed and recovery-export integrity is checked; 30-minute, reference accuracy, and Windows/Linux validation are now user-deferred future work. Live macOS translation is user-confirmed; quantitative quality/latency validation remains open. Cross-platform capture/playback validation is still incomplete. The approved scope and durable rules are in [AGENTS.md](AGENTS.md); the milestone sequence is in the [roadmap](docs/roadmap.md).
 
 ## Completed
 
@@ -13,13 +13,13 @@ Milestone 3: exports, bounded recovery, and gap records implemented and offline-
 - MIT license, third-party licensing notes, and ignores for local secrets and private artifacts added.
 - Python packaging and `liltide` command implemented: `devices`, local `doctor`, `run --check-audio`, exact-ID source selection, RMS/peak meter, duration/sample-rate controls, and clean shutdown.
 - Native capture isolated in a spawned process with bounded queues, stall timeouts, and forced cleanup fallback. Level-check mode remains local-only; translation explicitly enables Azure transmission. No raw audio recording; transcript output requires explicit export flags.
-- 142 offline tests cover capture/translation, exports, blank filtering, segmentation configuration, structured failure policy, bounded backoff, fresh audio/context recovery, and gap persistence/cleanup.
+- 173 offline tests cover the capture/translation/recovery pipeline plus callback/handler timing, optional display/exit summaries, negative estimates, nullable fields, process serialization, and clock continuity across contexts.
 - Azure Speech adapter (separate native worker), combined Polish recognition/English translation, timestamps, bilingual/English-only captions, paced PCM16 WAV input, and interactive pause/resume implemented.
 - Cloud requires local environment credentials and explicit `--confirm-f0`; the agent has not accessed the account/resource or invoked live Azure calls. The user subsequently confirmed a working live session.
 
 ## Verification evidence
 
-Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rendered; small-size light/dark/monochrome previews visually inspected; intended text color pairs passed contrast checks. See [validation](docs/validation.md) for procedures, measurements, and the preview. Capture validation: editable install and wheel build passed; 28 tests passed; `pip check` passed. Host: macOS 27.0.1 (Darwin 27.0.0), arm64, Python 3.13.7; Typer 0.27.3, Rich 14.3.4, SoundCard 0.4.6, NumPy 2.5.4. Outside the sandbox, `doctor` discovered four inputs. A virtual-input test detected a synthetic 440 Hz tone at approximately -23 dBFS RMS / -20 dBFS peak, returned to digital silence, and completed a four-second run cleanly. No raw audio was saved or transmitted. The user subsequently reported that the requested real-lecture capture/playback check works. This is user-reported confirmation, not an independently observed rerun; individual check results and duration were not supplied. Physical microphone capture remains unverified. Translation validation: fake-provider/SDK tests pass; the user reports live translation works; quantitative quality, latency, and failure behavior remain unverified. Current full suite: 142 passed; wheel build and dependency checks pass. Added Azure Speech SDK 1.53.0 and SoXR 1.1.0 in the local environment.
+Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rendered; small-size light/dark/monochrome previews visually inspected; intended text color pairs passed contrast checks. See [validation](docs/validation.md) for procedures, measurements, and the preview. Capture validation: editable install and wheel build passed; 28 tests passed; `pip check` passed. Host: macOS 27.0.1 (Darwin 27.0.0), arm64, Python 3.13.7; Typer 0.27.3, Rich 14.3.4, SoundCard 0.4.6, NumPy 2.5.4. Outside the sandbox, `doctor` discovered four inputs. A virtual-input test detected a synthetic 440 Hz tone at approximately -23 dBFS RMS / -20 dBFS peak, returned to digital silence, and completed a four-second run cleanly. No raw audio was saved or transmitted. The user subsequently reported that the requested real-lecture capture/playback check works. This is user-reported confirmation, not an independently observed rerun; individual check results and duration were not supplied. Physical microphone capture remains unverified. Translation validation: fake-provider/SDK tests pass; the user reports live translation works; quantitative quality/latency and comprehensive failure coverage remain unverified; a live interruption/recovery test is user-confirmed. Current full suite: 173 passed; wheel build and dependency checks pass. Added Azure Speech SDK 1.53.0 and SoXR 1.1.0 in the local environment.
 
 ## Capability status
 
@@ -29,10 +29,12 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 | Audio capture / device diagnostics | Implemented; macOS lecture check confirmed by user | Synthetic virtual-input smoke test plus user report |
 | Azure transcription / translation | Implemented; live macOS session user-confirmed | Offline tests plus user report; no independent live rerun |
 | WAV replay, resampling, pause/resume | Implemented; offline-tested | Session, source, PCM, and fake-provider tests |
-| Text/JSONL exports | Implemented; offline-tested | Per-final-segment flush/fsync, opt-in only; interruption and failure tests pass |
-| Automatic cloud recovery and gap records | Implemented; offline-tested | Three retries/run at 1/2/4 seconds; known fatal failures stop; live recovery unverified |
+| Text/JSONL exports | Implemented; user-generated files inspected | Matching text/JSONL captions/gaps, UTF-8/schema checked; no private content retained in docs |
+| Automatic cloud recovery and gap records | Implemented; live macOS test user-confirmed | Recovery exports match, with captions after gaps and two successful recognizer contexts; exact retry/downtime timing unmeasured |
+| Export run metadata | Implemented; offline-tested | Durable session headers, settings distinction, no identifier leakage, fail-fast cleanup; legacy files unchanged |
 | Python GUI | Deferred | Roadmap only |
-| Accuracy and latency | Unmeasured | No recordings evaluated |
+| Caption arrival instrumentation | Implemented; offline-tested | Callback/handler timestamps, dispatch and provisional-to-final intervals; source-end delay explicitly estimated |
+| Accuracy and benchmark latency | Reference evaluation deferred by user | Live timing exports inspected; source-end delay remains estimated |
 
 | Platform | Capture tested | Provider tested | Release support |
 | --- | --- | --- | --- |
@@ -51,9 +53,19 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 
 ## Next actions
 
-1. Manually validate recovery in an explicitly invoked F0 session using fresh filenames and the brief interruption steps in docs/setup.md. No live cloud calls or network changes were run for this implementation.
-2. Run Windows/Linux capture smoke tests and record actual versions/architectures; do not mark milestone 1's all-platform gate complete until these pass.
-3. Record session duration and reviewed quality/latency before marking the full milestone 2 validation gate complete. Exports and bounded recovery are implemented; live interruption and long-session validation remain milestone 3 work.
+1. Run-configuration metadata is implemented and offline-tested following user authorization. New normal CLI exports include it automatically; no historical settings are inferred. Further implementation (including GUI) requires its own authorized scope.
+2. Keep the future validation tasks below deferred until the user is ready; do not repeatedly request them as immediate next steps.
+3. Preserve the current evidence limits: macOS PoC/recovery are user-confirmed; reference-aligned accuracy/latency, 30-minute stability, and Windows/Linux support are not established.
+
+## Future validation — user-deferred
+
+Deferred on 2026-10-29 because the user cannot perform these now; no planned execution date.
+
+- **Long-session test:** Caption delay, memory use, pause/resume, exports, and one network interruption during a 30-minute session.
+- **Accuracy review:** A few minutes against original audio, including missing words, numbers, and meaning.
+- **Windows/Linux validation:** Installation/setup, capture, and playback on both systems with actual environment details recorded.
+
+These tasks remain incomplete and are not blockers for other authorized development. The applicable release and quality claims still require validation. Detailed acceptance procedures remain in [validation](docs/validation.md) and [roadmap](docs/roadmap.md).
 
 ## Progress log
 
@@ -86,3 +98,23 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 - 2026-10-29: User authorized connection recovery and gap records. Added structured Azure failures, queued-final preservation, run-wide three-retry budget (1/2/4 seconds), fresh live/SDK contexts, conservative gap checkpoints/closures in terminal and both export formats, file-cursor retention, and fatal/persistence failure stops. 142 offline tests, wheel build, dependency/whitespace checks passed. No live cloud/network test, private export changes, commit, or push; live SDK behavior and 30-minute validation remain open.
 
 - 2026-10-29: User approved committing and pushing the pending finalized exports, blank-event fix, optional segmentation tuning, bounded recovery, gap records, and associated tests/docs. Private exports remain ignored; latest verification is 142 passing offline tests plus build/dependency checks.
+
+- 2026-10-29: User reported silence from BlackHole after headphone use. Read-only macOS audio diagnostics outside the sandbox showed output routed directly to Bluetooth headphones, BlackHole selected as default input, and an existing Multi-Output Device not selected for output. This identifies a playback-routing issue; no settings were changed or audio captured. Recommended verifying multi-output membership and selecting it for playback. No device-owner names or private identifiers retained. Fix/test outcome pending user confirmation.
+
+- 2026-10-29: User confirmed the full Wi-Fi interruption/reconnect/resume/Ctrl+C checklist works. Inspected local recovery export pair read-only: 3 segment records, 4 gap records, one export session, 2 successful recognizer contexts, and captions after gaps. Text/JSONL match exactly; UTF-8, schema types, unique segment IDs and valid intervals pass. Gap reasons include connection_failure and network_disconnect. Exact retry count, downtime/detection timing, quality, and 30-minute stability are not established. No transcript content/identifiers copied into docs; no code changes, live agent cloud calls, commit, or push.
+
+- 2026-10-29: User authorized caption arrival-time measurements. SDK callbacks now carry monotonic timestamps; session records relative arrival/handler times, local dispatch, first observed provisional-to-final interval, and explicitly estimated source-end delay. New segment exports add nullable timing fields and text arrival lines; gaps/old files unchanged. `--show-timing` opts into console details and median/nearest-rank p95/max summaries, including failure/Ctrl+C paths. Negative estimates retained/flagged; handler fallback never invents SDK latency. 157 offline tests, wheel build, dependency/whitespace checks passed. No live timing cloud call, private export modification, commit, or push.
+
+- 2026-10-29: Read-only inspection of the user timing export found one valid nonblank final caption with English and provider_callback timing, no gaps/duplicates, and exact timing-equation consistency. Arrival 30.783 s, handling 30.867 s, mapped phrase end 28.551 s: estimated source-end delay 2.232 s and local dispatch 84 ms. Phrase duration 27.120 s; first observed provisional-to-final 27.391 s. This validates populated live timing fields for one sample, not a latency distribution, reference alignment, or 30-minute stability. Private file unchanged/ignored; no transcript content or identifiers copied into docs.
+
+- 2026-10-29: Compared timing exports read-only: previous snapshot retained under export-1 has 1 final (2.232 s estimated source-end delay, 84 ms dispatch, 27.120 s phrase). Current exports snapshot has 4 callback-timed finals, no blanks/duplicates/gaps, matching timing equations and ordered valid intervals. Current medians: estimated source-end delay 1.226 s, dispatch 37.5 ms, provisional-to-final 5.3715 s, phrase length 5.760 s; longest phrase 20.880 s. Speech text and covered durations differ, and segmentation setting is not stored, so no controlled causal improvement or benchmark claim. Files unchanged; no transcript text/IDs copied into docs.
+
+- 2026-10-29: User confirmed repeating the same recording; compared current exports1 versus exports timing files read-only. Coverage 30.20/30.54 s, 73/72 source words, normalized token similarity about 97.9% (not accuracy). Exports1: 2 finals, estimated-delay median 3.259 s, provisional-to-final median 14.3495 s, phrase median/max 13.780/13.920 s, dispatch median 51.5 ms. Exports: 4 finals, estimated-delay median 1.4015 s, provisional-to-final median 6.1415 s, phrase median/max 6.560/8.520 s, dispatch median 48 ms. Both have English for every final and no gaps/blanks/duplicate IDs; timing equations pass. Minor source wording/coverage differences remain, including a short phrase absent from the exports run. Settings-to-file mapping requested because not stored in exports; do not infer it from folder names. No private transcript content retained, files unchanged.
+
+- 2026-10-29: User confirmed that the compared `exports/timing-test.jsonl` run used `--segmentation-silence-ms 300`. This attributes the more responsive current sample (4 finals; 1.4015 s median estimated delay; 6.1415 s provisional-to-final) to that configured run. The user has not explicitly confirmed the `exports1` setting; do not label it default yet. Keep service default unchanged pending repeated accuracy/coverage checks.
+
+- 2026-10-29: User explicitly deferred the 30-minute stability test, reference-audio accuracy review, and Windows/Linux capture/setup validation because they cannot perform them now. Added future-work entries with no schedule; retained unverified status and release/quality evidence requirements. No tests run or marked complete.
+
+- 2026-10-29: User authorized run-configuration export metadata. New CLI text/JSONL exports start with one durable session header recording app version, provider/languages, input type, and requested/default segmentation. Headers exclude credentials, region, file/device identifiers, and environment values; older exports are unchanged. Header failures close files and prevent capture/provider startup. 173 offline tests passed, including fake CLI cases for all three input types and default/300 ms settings, header visibility, no default persistence, failure cleanup, and reconnect continuity. Wheel build, dependency and whitespace checks passed. No live cloud calls, private export changes, commit, or push.
+
+- 2026-10-29: User authorized committing and pushing pending caption timing instrumentation, export run metadata, and associated documentation/future-validation updates. Reviewed the selected source/tests/docs; 173 offline tests and whitespace checks passed. Private exports and local credentials remain excluded. No live cloud tests performed.

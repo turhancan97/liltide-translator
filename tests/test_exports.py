@@ -44,8 +44,10 @@ def test_final_only_unicode_and_flush_before_close(tmp_path, kind):
             record = json.loads(lines[0])
             assert record == dict(type="segment", session_id=sink.session_id, segment_id="0",
                 start_ms=1234, end_ms=2345, source_language="pl-PL", target_language="en",
-                source_text=caption().polish, translation_text=None)
-            assert "Zażółć" in lines[0] and "provisional" not in lines[0]
+                source_text=caption().polish, translation_text=None,
+                arrival_ms=None, handled_ms=None, timing_source=None, dispatch_delay_ms=None,
+                first_provisional_arrival_ms=None, provisional_to_final_ms=None, estimated_final_delay_ms=None)
+            assert "Zażółć" in lines[0] and record["type"] == "segment"
         if os.name != "nt":
             assert all(path.stat().st_mode & 0o777 == 0o600 for path in tmp_path.iterdir())
 
@@ -236,7 +238,8 @@ def test_cli_exports_both_languages_even_in_english_view(tmp_path, monkeypatch, 
     assert result.exit_code == 0, result.output
     assert "PL:" not in result.output
     assert "Zażółć" in text.read_text(encoding="utf-8")
-    assert len(data.read_text(encoding="utf-8").splitlines()) == 1
+    records = [json.loads(line) for line in data.read_text(encoding="utf-8").splitlines()]
+    assert [r['type'] for r in records] == ['session', 'segment']
 
 
 def test_level_check_rejects_exports_without_creating_files(tmp_path):

@@ -336,7 +336,7 @@ def test_cli_recovery_keeps_export_session_and_same_cloud_config(clock, tmp_path
         '--export-text', str(text), '--export-jsonl', str(data)])
     assert result.exit_code == 0, result.output
     records = [json.loads(line) for line in data.read_text().splitlines()]
-    assert [r['type'] for r in records] == ['segment', 'gap', 'gap', 'segment']
+    assert [r['type'] for r in records] == ['session', 'segment', 'gap', 'gap', 'segment']
     assert len({r['session_id'] for r in records}) == 1
     assert configs[0] is configs[1]  # Same credentials, region, and F0 assertion, no fallback.
     assert 'Reconnecting 1/3' in result.output and 'Audio gap' in result.output

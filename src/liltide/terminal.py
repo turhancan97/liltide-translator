@@ -40,10 +40,11 @@ class PauseControl:
 
 
 class CaptionRenderer:
-    def __init__(self, console, view):
+    def __init__(self, console, view, show_timing=False):
         self.console = console
         self.view = view
         self.live = None
+        self.show_timing = show_timing
 
     def __enter__(self):
         if self.console.is_terminal:
@@ -57,6 +58,10 @@ class CaptionRenderer:
         if self.view == "bilingual":
             text += f"PL: {event.polish}\n"
         text += f"EN: {event.english if event.english is not None else '[translation unavailable]'}"
+        if self.show_timing and event.arrival_ms is not None:
+            text += f"\nArrived {timestamp(event.arrival_ms)} ({event.timing_source})"
+            if event.final and event.estimated_final_delay_ms is not None:
+                text += f" | estimated final delay {event.estimated_final_delay_ms:+d} ms"
         if event.final:
             if self.live:
                 self.live.update(Text(""))
@@ -68,6 +73,19 @@ class CaptionRenderer:
         if self.live:
             self.live.update(Text(""))
         self.console.print(Text(message))
+
+    def timing_summary(self, summary):
+        self.status(f"Timing: {summary['final_captions']} final captions received; {summary['translated_final_captions']} with English; {summary['provider_callback_captions']} SDK callback-timed; {summary['handler_only_captions']} handler-only.")
+        for key, label in (("estimated_final_delay", "Estimated final-caption delay (not benchmark latency)"),
+                           ("dispatch_delay", "SDK callback to session handler"),
+                           ("provisional_to_final", "First observed provisional to final callback")):
+            stats = summary[key]
+            if not stats['count']:
+                self.status(f"{label}: no samples.")
+            else:
+                self.status(f"{label}: n={stats['count']}, median={stats['median_ms']:g} ms, p95={stats['p95_ms']:g} ms, max={stats['max_ms']:g} ms.")
+        if summary['negative_estimates']:
+            self.status(f"Warning: {summary['negative_estimates']} negative delay estimates retained; source-clock alignment needs review.")
 
     def __exit__(self, *args):
         if self.live:

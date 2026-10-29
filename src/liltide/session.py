@@ -9,6 +9,7 @@ from liltide.events import Gap
 from liltide.formatting import timestamp
 from liltide.pcm import PCMEncoder
 from liltide.provider import Caption, ProviderError, ProviderFailure
+from liltide.timing import timing_summary
 
 
 class TranslationSession:
@@ -33,6 +34,10 @@ class TranslationSession:
         self.retries = 0
         self.pending_gap = None
         self.gaps = []
+        self.first_provisionals = {}
+
+    def timing_summary(self):
+        return timing_summary(self.finalized)
 
     def _elapsed_ms(self):
         return 0 if self.started is None else max(0, int((time.monotonic() - self.started) * 1000))
@@ -74,7 +79,20 @@ class TranslationSession:
                         start_ms=event.start_ms + self.base_ms, end_ms=event.end_ms + self.base_ms)
         if event.segment_id in self.seen:
             return
+        handled = round((time.monotonic() - self.started) * 1000)  # Before export/fsync/rendering.
+        callback_timed = event.callback_monotonic is not None
+        arrival = round((event.callback_monotonic - self.started) * 1000) if callback_timed else handled
+        if not event.final and callback_timed:
+            self.first_provisionals[event.segment_id] = min(self.first_provisionals.get(event.segment_id, arrival), arrival)
+        first = self.first_provisionals.get(event.segment_id)
+        event = replace(event, arrival_ms=arrival, handled_ms=handled,
+                        timing_source="provider_callback" if callback_timed else "session_handler",
+                        dispatch_delay_ms=handled - arrival if callback_timed else None,
+                        first_provisional_arrival_ms=first,
+                        provisional_to_final_ms=arrival - first if event.final and callback_timed and first is not None else None,
+                        estimated_final_delay_ms=arrival - event.end_ms if event.final and callback_timed else None)
         if event.final:
+            self.first_provisionals.pop(event.segment_id, None)
             self.seen.add(event.segment_id)
             self.finalized.append(event)
             self.last_final_end_ms = max(self.last_final_end_ms, event.end_ms)
@@ -88,6 +106,7 @@ class TranslationSession:
         self.encoder = PCMEncoder(self.source.rate)
         self.encoder_finished = False
         self.epoch = uuid4().hex
+        self.first_provisionals.clear()  # Unfinished provisional observations do not cross contexts.
         self.base_ms = self._elapsed_ms()
         self.on_status("Connecting to Azure Speech (operator-confirmed F0)…")
         self.provider = self.provider_factory()

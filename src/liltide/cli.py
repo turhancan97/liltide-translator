@@ -108,10 +108,11 @@ def run(
     file: Annotated[Path | None, typer.Option("--file", help="PCM16 mono/stereo WAV input (requires --source file).")] = None,
     view: Annotated[View, typer.Option("--view")] = View.bilingual,
     confirm_f0: Annotated[bool, typer.Option("--confirm-f0", help="Confirm you checked this Azure resource uses the free F0 tier.")] = False,
-    export_text: Annotated[Path | None, typer.Option("--export-text", help="Save finalized Polish/English text to a new UTF-8 file.")] = None,
-    export_jsonl: Annotated[Path | None, typer.Option("--export-jsonl", help="Save finalized segments to a new UTF-8 JSONL file.")] = None,
+    export_text: Annotated[Path | None, typer.Option("--export-text", help="Save run settings, bilingual captions, and gaps to a new UTF-8 file.")] = None,
+    export_jsonl: Annotated[Path | None, typer.Option("--export-jsonl", help="Save run settings, finalized captions, and gaps to a new JSONL file.")] = None,
     segmentation_silence_ms: Annotated[int | None, typer.Option("--segmentation-silence-ms", min=100, max=5000,
         help="Experimental Azure pause threshold; e.g. 300 for shorter phrases. Default: service setting. Not a phrase-length limit.")] = None,
+    show_timing: Annotated[bool, typer.Option("--show-timing", help="Show caption arrival details and an estimated-delay summary on exit.")] = False,
 ):
     """Translate selected audio, or check levels locally. Ctrl+C stops."""
     if source == Source.file:
@@ -121,6 +122,8 @@ def run(
         fail("--file requires --source file.")
     if check_audio and (export_text is not None or export_jsonl is not None):
         fail("--check-audio is incompatible with transcript exports.")
+    if check_audio and show_timing:
+        fail("--show-timing is only available for translated captions, not --check-audio.")
     if not check_audio:
         if source != Source.file and not device:
             fail("--device is required for live input. Run 'liltide devices'.")
@@ -130,6 +133,7 @@ def run(
             from liltide.sources import LiveSource, WaveSource
             from liltide.terminal import CaptionRenderer, PauseControl
             from liltide.exports import TranscriptExports
+            from liltide.metadata import RunMetadata
             config = CloudConfig.from_environment(confirm_f0, segmentation_silence_ms)
             if source != Source.file:
                 # Reject wrong source/IDs before initializing any cloud resource.
@@ -146,11 +150,16 @@ def run(
                 out.print("Select a manually routed virtual input for system audio; source type cannot be inferred on macOS.")
             factory = (lambda: WaveSource(file)) if source == Source.file else (
                 lambda: LiveSource(device, source.value, sample_rate))
-            with TranscriptExports(export_text, export_jsonl) as exports, CaptionRenderer(out, view.value) as renderer, PauseControl() as controls:
+            metadata = RunMetadata(source.value, config.segmentation_silence_ms)
+            with TranscriptExports(export_text, export_jsonl, metadata=metadata) as exports, CaptionRenderer(out, view.value, show_timing) as renderer, PauseControl() as controls:
                 session = TranslationSession(factory, lambda: AzureProvider(config), renderer.caption,
                     renderer.status, controls, file_input=source == Source.file, duration=duration,
                     on_finalized=exports.caption, on_gap=exports.gap)
-                session.run()
+                try:
+                    session.run()
+                finally:
+                    if show_timing:
+                        renderer.timing_summary(session.timing_summary())
         except AudioError as exc:
             fail(str(exc))
         return

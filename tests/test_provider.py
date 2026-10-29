@@ -117,6 +117,7 @@ def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, failure_code,
             result.append(events.get_nowait())
         assert result[0] == 'ready' and result[-1] == 'stopped'
         assert [e.final for e in result if isinstance(e, Caption)] == [False, True]
+        assert all(e.callback_monotonic is not None for e in result if isinstance(e, Caption))
         assert ack.value == 200 and state['stopped'] and errors.empty()
 
 

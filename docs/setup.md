@@ -122,13 +122,13 @@ liltide run --source file --file lecture.wav --confirm-f0 --export-jsonl exports
 ```
 
 - Export flags are independent; without them no transcript files are created. They cannot be combined with `--check-audio`.
-- Files are created exclusively before capture/provider startup. Existing files, directories, or symlinks are refused, as is using the same path for both formats. Parent directories must already exist. Startup failure can leave new empty export files; choose new names or remove those empty files yourself before retrying.
-- Only finalized segments are exported, once per segment. Text includes elapsed start/end timestamps and `PL`/`EN` labels. JSONL is UTF-8 with one JSON object per finalized segment; Polish diacritics are preserved, embedded newlines are escaped, and unavailable translation is `null`.
+- Files are created exclusively before capture/provider startup. Existing files, directories, or symlinks are refused, as is using the same path for both formats. Parent directories must already exist. Startup failure can leave new empty or header-only export files; inspect them and choose fresh names before retrying.
+- Among caption events, only finalized segments are exported, once per segment. Text includes elapsed start/end timestamps and `PL`/`EN` labels. JSONL is UTF-8 with one JSON object per finalized segment; Polish diacritics are preserved, embedded newlines are escaped, and unavailable translation is `null`.
 - `--view english` changes the terminal display only. Both exports always include Polish and English. No credentials, device metadata, status logs, provisional text, or raw audio are exported.
 - Each segment is written, flushed, and synced using the operating system before display. Previously completed records remain readable after Ctrl+C, provider failure, or abrupt process termination. This is not a guarantee against filesystem/hardware failure or preservation of a caption that has not finalized yet.
 - A write/flush/sync failure stops capture and the provider. The final record may be incomplete; retain complete JSONL lines before it. If both formats are enabled, one can contain a segment that the other failed to save. No rollback deletes previously saved speech.
 - Pausing/resuming keeps the same export files and session ID. New recognizer contexts get distinct segment IDs; no prior transcript is reopened or appended in a later run.
-- Current JSONL records use `type: "segment"`, `session_id`, `segment_id`, `start_ms`, `end_ms`, `source_language: "pl-PL"`, `target_language: "en"`, `source_text`, and `translation_text`. JSONL now also includes gap records; readers must branch on `type` rather than assuming every line contains caption text.
+- Current JSONL records use `type: "segment"`, `session_id`, `segment_id`, `start_ms`, `end_ms`, `source_language: "pl-PL"`, `target_language: "en"`, `source_text`, and `translation_text`. JSONL also includes session headers and gap records; readers must branch on `type` (`session`, `segment`, `gap`) rather than assuming every line contains caption text.
 
 Exports persist until you delete them. Keep them outside version control: the project ignores `exports/`, `transcripts/`, and `*.jsonl`; arbitrary `.txt` paths are not automatically ignored. No raw audio files are recorded.
 
@@ -162,4 +162,55 @@ Segment records retain their existing schema and share the same export `session_
 4. Confirm captions resume, earlier captions remain, and both files include gap records with the same session ID. Ctrl+C should stop cleanly, including during backoff.
 5. Record actual status/errors, retry count, and platform. Do not infer exact lost-audio coverage or latency from gap duration. Failure to resume needs investigation rather than upgrading the resource.
 
-Offline fake-provider tests cover this behavior; a live disconnect test and a 30-minute session remain open. Azure error-code reference checked 2026-10-29: [CancellationErrorCode](https://learn.microsoft.com/en-us/python/api/azure-cognitiveservices-speech/azure.cognitiveservices.speech.cancellationerrorcode?view=azure-python).
+Offline fake-provider tests cover this behavior. The user confirmed a successful live macOS disconnect/reconnect/resume/shutdown test; inspected recovery exports also match. A 30-minute session and quantified detection/timing checks remain open. Azure error-code reference checked 2026-10-29: [CancellationErrorCode](https://learn.microsoft.com/en-us/python/api/azure-cognitiveservices-speech/azure.cognitiveservices.speech.cancellationerrorcode?view=azure-python).
+
+
+## Caption arrival-time measurements
+
+Use the existing F0 credentials and audio route. No additional service or dependency is needed:
+
+```console
+liltide run --source system --device DEVICE_ID --confirm-f0 --show-timing --export-jsonl exports/timing-test.jsonl --export-text exports/timing-test.txt
+```
+
+Choose fresh filenames and an existing parent directory. Timing is computed for every caption session. `--show-timing` controls terminal detail/summary only; requested exports include timing fields with or without the flag. No export flags means no timing files. `--check-audio` rejects `--show-timing`. Summary output appears after normal completion, Ctrl+C, or a session error once a session exists; it is console output rather than a separate saved summary record.
+
+### Field meanings
+
+Segment JSONL records retain their existing fields and add:
+
+| Field | Definition |
+| --- | --- |
+| `arrival_ms` | Milliseconds since session start at SDK callback entry; handler time is used only when the provider supplies no callback timestamp |
+| `handled_ms` | Milliseconds since session start when the session handles this event, before transcript flush/sync and rendering |
+| `timing_source` | `provider_callback` or `session_handler`; `null` for a standalone untimed export |
+| `dispatch_delay_ms` | Handler minus callback arrival; `null` without a callback timestamp |
+| `first_provisional_arrival_ms` | Earliest callback arrival among meaningful provisional events observed for this segment/context, or `null` |
+| `provisional_to_final_ms` | Final callback arrival minus the first observed provisional callback arrival, or `null` when either is unavailable |
+| `estimated_final_delay_ms` | Final callback arrival minus session-mapped provider `end_ms`; `null` without a provider callback timestamp |
+
+Timestamps are session-relative, rounded to milliseconds, and continue across pause/reconnect. New recognition contexts reset unfinished provisional observations. Repeated final events do not create extra timing samples. Gap records keep their existing schema and are excluded from caption summaries. Older exports lack these fields; readers should treat absent/`null` values as unavailable. Raw absolute monotonic timestamps stay internal and are not exported. Text files add an `Arrival:` line per timed final caption. `--view english` still changes display only, not export languages/timing.
+
+### What these numbers establish
+
+SDK callbacks are stamped before event decoding/IPC. `dispatch_delay_ms` measures local dispatch/handling delay, including polling and other session work; it is not network latency. Neither callback nor handler time measures when pixels became visible: disk sync, console output, and terminal refresh happen afterward. First observed provisional-to-final time measures stabilization after an available partial result; dropped/unobserved partial callbacks are not reconstructed.
+
+**The final source-end delay is an estimate.** Provider audio offsets are mapped using each recognition context’s readiness time; capture startup/buffering, resampling, replay pacing/drift, and provider segmentation affect audio-to-clock alignment. WAV results use the same session mapping and are not an annotated reference benchmark. Negative estimates are kept, not clamped to zero; they flag alignment issues or overly early audio delivery for review. Do not interpret segment duration as latency, a small local dispatch time as fast translation, or a handler-only fallback as a measured SDK arrival.
+
+The terminal summary reports final captions received, how many contain English, SDK-timed versus handler-only counts, and sample count/median/nearest-rank p95/max for available estimates, local dispatch, and provisional-to-final intervals. Estimates include source-only final captions when English is unavailable, so inspect `translation_text` when evaluating translated output specifically. No samples yields an explicit unavailable result. Negative estimates remain in aggregates and produce a warning. With few samples, p95 often equals the maximum. Summary counts are received events, not a guarantee that every event was displayed or persisted if an export failed.
+
+For the next test, play a short non-private Polish clip, stop with Ctrl+C, and inspect these fields plus the terminal summary. Then use a representative reference recording with annotated phrase ends and a controlled playback clock to evaluate actual end-to-end translation delay. No new live cloud timing measurement has been run by the agent. Clock reference checked 2026-10-29: [Python monotonic clock](https://docs.python.org/3/library/time.html#time.monotonic).
+
+## Run configuration metadata
+
+New CLI exports start with one session header, written and flushed/synced before audio-source or provider startup. Text exports have a readable `[session]` block. JSONL exports begin with this structure (the session ID varies):
+
+```json
+{"type":"session","session_id":"example","schema_version":1,"app_version":"0.1.0.dev0","provider":"azure_speech","source_language":"pl-PL","target_language":"en","input_type":"system","segmentation_silence_ms":300,"segmentation_mode":"explicit_request"}
+```
+
+`input_type` is `system`, `microphone`, or `file`. With no segmentation override, `segmentation_silence_ms` is `null` and `segmentation_mode` is `service_default`; this does not assume a numerical Azure default. With `--segmentation-silence-ms 300`, the fields are `300` and `explicit_request`. These describe requested settings, not proof of service behavior or identical cloud models across runs.
+
+The header shares `session_id` with all subsequent segments/gaps and is not repeated on pause/resume or reconnect. A header alone means export initialization succeeded, not that capture or translation succeeded. Header-write failures close opened files and prevent source/provider startup. Without export flags, metadata remains in memory and no files or sidecars are created.
+
+Metadata is an explicit allowlist: no credentials, environment values, Azure region, device names/IDs, file paths, or wall-clock identifiers are included. Caption records still contain speech. Older files remain unchanged and may lack a header; readers should treat their settings as unknown rather than infer them from folder names. Standalone exporter callers may omit metadata for compatibility. New JSONL readers must handle `session`, `segment`, and `gap` separately.

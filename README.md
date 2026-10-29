@@ -46,7 +46,17 @@ liltide run --source system --device DEVICE_ID --confirm-f0 --export-text export
 
 PowerShell users can create the folder with `New-Item -ItemType Directory -Force exports`. Choose fresh filenames for each run: existing files are never overwritten. Both formats contain Polish and English, regardless of the terminal's `--view`. Provisional captions are excluded. Every finalized segment is flushed and synced before display, so completed writes survive a process interruption. Exports may contain private speech; the `exports/` folder is ignored by Git. See [export details](docs/setup.md#file-input-and-exports).
 
+New CLI exports automatically begin with run settings: app version, language pair, input type, and requested segmentation silence. JSONL uses a `type: "session"` header; text uses a `[session]` block. No extra flag is needed. Device identifiers, filenames, and credentials are excluded. See [run metadata](docs/setup.md#run-configuration-metadata).
+
 Connection interruptions appear as `[gap]` notices and, when export is enabled, `type: "gap"` JSONL records. Capture stops during recovery; stale audio is discarded. Saved captions remain in the same files/session. Gap intervals conservatively include audio that may be missing or unfinalized, and may be split into adjacent checkpoint/recovery records. See [recovery behavior and test steps](docs/setup.md#connection-recovery-and-gap-records).
+
+## Inspect caption timing
+
+```console
+liltide run --source system --device DEVICE_ID --confirm-f0 --show-timing --export-jsonl exports/timing-test.jsonl
+```
+
+Use a new filename. `--show-timing` displays arrival details and a count/median/p95/max summary on exit, including Ctrl+C or a session error. New segment exports contain callback-arrival, handler, local dispatch, and first-provisional-to-final timing fields. The source-end delay is explicitly an **estimate**, affected by capture startup, source pacing, and offset alignment; it is not a verified translation-latency benchmark. Negative estimates are retained and flagged. See [measurement definitions](docs/setup.md#caption-arrival-time-measurements).
 
 ## Intended first release
 
@@ -79,6 +89,6 @@ Only Azure F0 is approved initially. Free allowances are limited; see the [provi
 
 ## Contributing and license
 
-Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. The translation PoC is implemented with offline tests. Next record measured quality/latency and validate reliability; opt-in exports, bounded reconnect, and gap records are implemented and offline-tested; live recovery and longer-session validation remain open.
+Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. The translation PoC is implemented with offline tests. Caption callback timing is now recorded; reference-aligned accuracy/latency, longer-session reliability, and Windows/Linux validation are deferred future work; opt-in exports, bounded reconnect, and gap records are implemented and offline-tested; live macOS recovery is user-confirmed; measured timing and longer-session validation remain open.
 
 Original project code, documentation, and brand assets are covered by the [MIT License](LICENSE). Third-party software retains its own terms. Liltide is a provisional name; package, domain, and trademark availability are not established.

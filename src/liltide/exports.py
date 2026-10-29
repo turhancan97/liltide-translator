@@ -10,17 +10,26 @@ from liltide.formatting import timestamp
 
 
 class TranscriptExports:
-    def __init__(self, text_path=None, jsonl_path=None):
+    def __init__(self, text_path=None, jsonl_path=None, *, metadata=None):
         self.destinations = [(kind, Path(path)) for kind, path in
                              (("text", text_path), ("jsonl", jsonl_path)) if path is not None]
         self.session_id = uuid4().hex
         self.files = []
+        self.metadata = metadata
 
     def __enter__(self):
         try:
-            return self._open()
-        except (OSError, RuntimeError, ValueError) as exc:
-            raise AudioError("Cannot prepare export paths. Check filenames, parent directories, and permissions.") from exc
+            self._open()
+            if self.metadata is not None:
+                self._write(self.metadata.record(self.session_id), self.metadata.text(self.session_id))
+            return self
+        except BaseException as exc:
+            # A header-write failure happens before __enter__ returns, so Python
+            # would not otherwise call __exit__. Close every opened destination.
+            self.__exit__(type(exc), exc, exc.__traceback__)
+            if isinstance(exc, (OSError, RuntimeError, ValueError)):
+                raise AudioError("Cannot prepare export paths. Check filenames, parent directories, and permissions.") from exc
+            raise
 
     def _open(self):
         resolved = [path.resolve() for _, path in self.destinations]
@@ -71,9 +80,20 @@ class TranscriptExports:
             "target_language": "en",
             "source_text": event.polish,
             "translation_text": event.english,
+            "arrival_ms": event.arrival_ms,
+            "handled_ms": event.handled_ms,
+            "timing_source": event.timing_source,
+            "dispatch_delay_ms": event.dispatch_delay_ms,
+            "first_provisional_arrival_ms": event.first_provisional_arrival_ms,
+            "provisional_to_final_ms": event.provisional_to_final_ms,
+            "estimated_final_delay_ms": event.estimated_final_delay_ms,
         }
         english = event.english if event.english is not None else "[translation unavailable]"
-        text = (f"[{timestamp(event.start_ms)} --> {timestamp(event.end_ms)}] [final]\n"
+        timing = ""
+        if event.arrival_ms is not None:
+            estimate = f"{event.estimated_final_delay_ms:+d} ms" if event.estimated_final_delay_ms is not None else "unavailable"
+            timing = f"Arrival: {timestamp(event.arrival_ms)} ({event.timing_source}); estimated final delay: {estimate}\n"
+        text = (f"[{timestamp(event.start_ms)} --> {timestamp(event.end_ms)}] [final]\n{timing}"
                 f"PL: {event.polish}\nEN: {english}\n\n")
         self._write(record, text)
 
@@ -96,7 +116,7 @@ class TranscriptExports:
                 file.flush()
                 os.fsync(file.fileno())
             except (OSError, UnicodeError) as exc:
-                raise AudioError(f"{kind.upper()} export write/flush failed. Session stopped; previously saved segments remain. The last record may be incomplete and paired exports may differ.") from exc
+                raise AudioError(f"{kind.upper()} export write/flush failed. Session stopped; previously saved records remain. The last record may be incomplete and paired exports may differ.") from exc
 
     def __exit__(self, exc_type, exc, traceback):
         failures = []
