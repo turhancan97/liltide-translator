@@ -15,7 +15,7 @@ Liltide is a personal-use-first, open-source Python CLI for Polish-to-English ca
 
 Keep Python 3.11+, a `src` package layout, Typer/Rich, SoundCard, NumPy with a dedicated resampler, and the Azure Speech SDK as the baseline. Keep capture, session coordination, providers, presentation, and exports separate. Permit a combined transcription/translation provider.
 
-Use the Liltide name, approved teal palette, system typography, accessible status labels, and factual writing. The package and command identifier is `liltide`, subject to eventual availability checks.
+Use the Liltide name, approved blue `#3a7eab`, red `#cf4832`, and gray `#d1d3d4` palette, system typography, accessible status labels, and factual writing. The package and command identifier is `liltide`, subject to eventual availability checks.
 
 ## Authorization and scope
 

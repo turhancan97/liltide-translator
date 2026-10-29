@@ -13,7 +13,7 @@ Documentation/asset QA passed:
 - Rendered all variants using `rsvg-convert`; visually inspected 24/32 px symbols and 160/360 px wordmarks on light/slate backgrounds. No clipping observed; 24 px symbols and 160 px wordmarks remain readable. [Rendered contact sheet](../assets/brand/preview.png).
 - Reviewed CLI examples, free-only policy, planned/verified distinctions, and roadmap consistency. No application code, cloud resources, drivers, or live API requests were created.
 
-Contrast was calculated using WCAG sRGB linearization and relative luminance (ratios rounded to two decimals):
+Historical original-palette results below are superseded by the 2026-10-29 brand refresh. Contrast was calculated using WCAG sRGB linearization and relative luminance (ratios rounded to two decimals):
 
 | Foreground | Background | Ratio | Normal text decision |
 | --- | --- | --- | --- |
@@ -88,3 +88,26 @@ Real system-audio capture and F0 provider smoke tests must be recorded for Windo
 ## User-reported live translation — 2026-10-28
 
 After Azure key/resource setup guidance, the user reported: “IT works perfectly now.” Record the end-to-end macOS translation PoC as user-confirmed working. No independent live rerun was performed. Session duration, source content, input mode, pause/resume outcomes, timing measurements, and accuracy annotations were not supplied. F0 SKU/configuration has not been inspected by the agent. This report does not establish perfect accuracy, a latency benchmark, failure recovery, or Windows/Linux support.
+
+
+## Brand refresh — 2026-10-29
+
+User-selected colors: blue `#3a7eab`, red `#cf4832`, gray `#d1d3d4`. Supporting neutrals: ink `#17212b`, white `#ffffff`. This palette supersedes the original teal identity. Refreshed all 8 logo variants; added a README banner, palette tokens, and a brand board with explicitly labeled caption concepts. No terminal behavior or shipped GUI changed.
+
+Rendered all SVGs using `rsvg-convert`. Visually inspected the banner and 1100×900 brand board for spacing/clipping and the logo contact sheet at 24/32 px symbols and 160/360 px wordmarks on white/ink backgrounds. All remained readable with no clipping. [Brand board preview](../assets/brand/brand-board.png) and [logo contact sheet](../assets/brand/preview.png).
+
+WCAG sRGB contrast ratios, rounded to two decimals:
+
+| Pair | Ratio | Use |
+| --- | --- | --- |
+| Ink / white | 16.29:1 | Normal text |
+| Gray / ink | 10.85:1 | Normal text |
+| Blue / white | 4.42:1 | Large text/meaningful graphics; not normal text |
+| Red / white | 4.54:1 | Normal text, without opacity reduction |
+| Blue / ink | 3.69:1 | Large text/meaningful graphics; not normal text |
+| Red / ink | 3.59:1 | Large text/meaningful graphics; not normal text |
+| Blue / gray | 2.94:1 | Decorative only |
+| Red / gray | 3.02:1 | Meaningful graphics/large text only |
+| Gray / white | 1.50:1 | Decorative only |
+
+Small text in the delivered banner/board uses ink on white or gray on ink. States use explicit text labels. The gray separators are decorative; meaningful caption boundaries use blue on white/ink. These are asset/document checks, not new application-test or accessibility claims about the future GUI.

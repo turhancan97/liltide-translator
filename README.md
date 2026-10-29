@@ -1,6 +1,6 @@
 # Liltide
 
-![Liltide wordmark](assets/brand/liltide-wordmark-light.svg)
+![Liltide — live captions across languages](assets/brand/liltide-banner.svg)
 
 **Live captions across languages.**
 

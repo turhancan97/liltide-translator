@@ -67,3 +67,9 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 - 2026-10-28: After Azure key/setup guidance, user reported “IT works perfectly now.” Recorded the live macOS translation path as user-confirmed. No independent cloud run, quantitative measurements, failure testing, or resource-tier inspection followed.
 
 - 2026-10-29: User requested local Git tracking. Initialized repository on `main`; existing author identity is configured. Checked candidate files and ignore rules: credentials, recordings, exports, virtual environment, caches, and build artifacts are excluded. No remote configured or publication performed.
+
+- 2026-10-29: User published the project and requested GitHub metadata updates. Remote: https://github.com/turhancan97/liltide-translator. Set and verified the description and ten topics (Python/CLI, speech recognition/translation, system audio, captions, Polish/English). No source push performed in this task.
+
+- 2026-10-29: User approved replacement brand colors #3a7eab, #cf4832, #d1d3d4. Refreshed light/dark and monochrome logos, README banner, palette tokens, and clearly labeled light/dark caption concepts. Rendered SVGs and visually checked large/small variants; documented contrast restrictions. Prior teal palette is superseded. No app behavior changes or remote push.
+
+- 2026-10-29: User approved committing and pushing the branding refresh to the configured GitHub remote. Reviewed branding/docs/assets only; local link, SVG, contrast, render, and whitespace checks passed.
