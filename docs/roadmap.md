@@ -43,9 +43,9 @@ Offline inference, additional language pairs, SRT export, translated speech, spe
 
 - [x] Stage 1: optional PySide6 window, source/device selection, F0-gated Start/Stop, bilingual provisional/final captions; fake-provider/offscreen checks passed. The user reports that the GUI works well on macOS; detailed live checklist outcomes remain unrecorded.
 - [x] Stage 2: pause/resume, English-only display (including existing history), and explicit session states; offline-tested and user-confirmed working on macOS; individual checklist results unspecified.
-- [x] Stage 3: optional text/JSONL destinations, caption timing toggle, and last-session summaries; offline-tested, live additions unverified.
+- [x] Stage 3: optional text/JSONL destinations, caption timing toggle, and last-session summaries; offline-tested and brief synthetic macOS GUI check passed.
 - [x] Stage 4: approved brand styling, System/Light/Dark themes, grouped/resizable layout, caption sizing, and keyboard controls; offline-tested/visually inspected.
-- [x] Floating caption view: optional shared-session window, latest final/provisional text, synchronized language/font/theme; offline-tested.
+- [x] Floating caption view: optional shared-session window, latest final/provisional text, synchronized language/font/theme; offline-tested, with live caption/language/font checks on macOS. Actual OS stacking remains open.
 - [ ] Real desktop stacking/fullscreen, accessibility, and OS theme checks; remain unverified.
 
 The user authorized GUI stages one through four before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.

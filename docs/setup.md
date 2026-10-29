@@ -1,6 +1,6 @@
 # Intended platform setup
 
-**Capture and translation PoC available.** Local capture and user-reported lecture routing work on this Mac. Translation has offline tests and a user-confirmed successful live macOS session; no independent agent cloud test has been run. Other-platform installation/capture remain unverified. No drivers, cloud resources, or credentials are supplied.
+**Capture and translation PoC available.** Local capture and user-reported lecture routing work on this Mac. Translation has offline tests and a user-confirmed successful live macOS session; an explicitly authorized synthetic BlackHole GUI smoke test is also recorded below. Other-platform installation/capture remain unverified. No drivers, cloud resources, or credentials are supplied.
 
 ## Install and check locally
 
@@ -251,7 +251,7 @@ Exports save the new run, not captions from earlier runs still visible in the wi
 
 After Stop, normal completion, or failure, the summary shows the last run's received final-caption count and how many contain English. Enable the timing toggle to show SDK versus handler-only counts and sample count/median/nearest-rank p95/max for estimated final-caption delay, callback-to-handler delay, and first-provisional-to-final interval. Unavailable samples are labeled; negative estimates remain and trigger a warning. Summary counts are received events, not proof of successful persistence or display of every record. Worker failures before a session starts produce zero samples; a Start rejected by the window before worker creation leaves the prior summary unchanged. A new run replaces the previous summary; prior transcript text remains visible. The summary is not written as a separate export record/file.
 
-Stage-three exports/timing are offline-tested with synthetic speech and fake providers, including failures/recovery and clean Qt shutdown. Live GUI checks of these additions remain open; earlier user confirmations cover stages one/two. No new agent cloud test was run.
+Stage-three exports/timing have offline coverage and a later agent-operated synthetic BlackHole GUI check, recorded below; that brief run does not replace the deferred reliability/accuracy/platform checks.
 
 ### GUI appearance and keyboard controls
 
@@ -273,4 +273,12 @@ The floating view shows the latest **Finalized** caption, separate **Provisional
 
 **View** and **Caption size** controls work in either window and synchronize in both directions. The floating window inherits the main theme, including System updates. These presentation changes do not restart processing or alter export content. Text is selectable and preserves literal markup/Polish Unicode. Use the main window for Start/Pause/Resume/Stop and exports. Closing the floating view does not stop translation; closing the main window still requests session cleanup, then hides the floating window too. Floating geometry/settings are not saved to disk.
 
-Qt is asked to keep this tool window on top and keep it visible while the app is inactive on macOS. Actual stacking depends on the OS/window manager; offscreen tests verify flags and interaction, not desktop stacking or fullscreen/Spaces behavior. Those live checks remain open, along with the earlier unverified stage-three/four additions. No agent audio/cloud test was run for this feature.
+Qt is asked to keep this tool window on top and keep it visible while the app is inactive on macOS. Actual stacking depends on the OS/window manager; offscreen tests verify flags and interaction, not desktop stacking or fullscreen/Spaces behavior. Cross-app stacking, fullscreen, and remaining desktop theme/accessibility checks remain open. A later agent-operated audio/translation/control test is recorded below; actual cross-app stacking remains open.
+
+### Recorded synthetic GUI smoke test — 2026-10-29
+
+The user explicitly authorized the live check, launched the GUI from the credentialed terminal, and reconfirmed F0. Credentials/account settings were not inspected. A locally generated 17.3 s Polish clip (macOS Zosia voice, synthetic test script) was played directly to BlackHole. No microphone or private recording was used, and system output routing was unchanged; audible lecture playback was not independently checked.
+
+The first attempts exposed a capture-child **Device ID not found** error even after Refresh. Full GUI restart then allowed the test to proceed. If this recurs, Stop, refresh/reselect the virtual input, and restart the GUI from the configured terminal if necessary. The underlying cause remains unresolved; do not treat restart as a code fix or silently fall back to a microphone. Create the export parent folder first: preflight correctly refused the initially missing folder.
+
+The successful run verified bilingual provisional/final captions, floating-window language/font synchronization (English-only/26 pt), close-floating-without-stop, pause/resume followed by new translated speech, and Stop with zero remaining capture/provider children. Text/JSONL exports contained one header/session and two final captions from distinct contexts, with no gaps and matching timing/summary fields. Cross-app stay-on-top/fullscreen behavior was not reliably verified; it remains a separate desktop check. Earlier failed-attempt exports correctly contain header plus source-failure gap, not speech. The short synthetic check is not reference accuracy, a latency benchmark, long-session validation, or other-platform evidence.
