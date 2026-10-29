@@ -14,12 +14,14 @@ from liltide.timing import timing_summary
 
 class TranslationSession:
     def __init__(self, source_factory, provider_factory, on_caption, on_status,
-                 control=lambda: None, *, file_input=False, duration=None, on_finalized=None, on_gap=None):
+                 control=lambda: None, *, file_input=False, duration=None, on_finalized=None, on_gap=None,
+                 should_stop=lambda: False):
         self.source_factory = source_factory
         self.provider_factory = provider_factory
         self.on_caption = on_caption
         self.on_status = on_status
         self.control = control
+        self.should_stop = should_stop
         self.file_input = file_input
         self.duration = duration
         self.on_finalized = on_finalized
@@ -101,6 +103,8 @@ class TranslationSession:
         self.on_caption(event)
 
     def _activate(self):
+        if self.should_stop():
+            raise KeyboardInterrupt
         if self.source is None:
             self.source = self.source_factory()
         self.encoder = PCMEncoder(self.source.rate)
@@ -109,8 +113,12 @@ class TranslationSession:
         self.first_provisionals.clear()  # Unfinished provisional observations do not cross contexts.
         self.base_ms = self._elapsed_ms()
         self.on_status("Connecting to Azure Speech (operator-confirmed F0)…")
+        if self.should_stop():
+            raise KeyboardInterrupt
         self.provider = self.provider_factory()
         self.provider.start()
+        if self.should_stop():
+            raise KeyboardInterrupt
         if self.ready_at is None:
             self.ready_at = time.monotonic()
         self.base_ms = max(self._elapsed_ms(), self.last_final_end_ms)
@@ -148,6 +156,8 @@ class TranslationSession:
             self.on_status(f"{error} Reconnecting {self.retries + 1}/3 in {delay} seconds. Capture stopped; Ctrl+C cancels.")
             deadline = time.monotonic() + delay
             while time.monotonic() < deadline:
+                if self.should_stop():
+                    raise KeyboardInterrupt
                 if self._expired():
                     self._close_gap()
                     self.on_status("Session duration reached during recovery.")
@@ -173,6 +183,8 @@ class TranslationSession:
         failed = False
         self.started = time.monotonic()
         try:
+            if self.should_stop():
+                raise KeyboardInterrupt
             active = True
             try:
                 self._activate()
@@ -183,7 +195,10 @@ class TranslationSession:
                 if self._expired():
                     break
                 try:
-                    if self.control() == "pause":
+                    action = self.control()
+                    if action == "stop" or self.should_stop():
+                        raise KeyboardInterrupt
+                    if action == "pause":
                         if paused:
                             paused = False
                             self._activate()

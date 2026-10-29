@@ -4,7 +4,7 @@ Last updated: 2026-10-29 (Europe/Prague).
 
 ## Current milestone
 
-Milestone 3: exports, bounded recovery, gap records, and caption arrival instrumentation implemented and offline-tested. Live macOS network-interruption recovery is user-confirmed and recovery-export integrity is checked; 30-minute, reference accuracy, and Windows/Linux validation are now user-deferred future work. Live macOS translation is user-confirmed; quantitative quality/latency validation remains open. Cross-platform capture/playback validation is still incomplete. The approved scope and durable rules are in [AGENTS.md](AGENTS.md); the milestone sequence is in the [roadmap](docs/roadmap.md).
+Milestone 3 reliability features and stage one of the optional Python GUI are implemented and offline-tested. Live macOS network-interruption recovery is user-confirmed and recovery-export integrity is checked; 30-minute, reference accuracy, and Windows/Linux validation are now user-deferred future work. Live macOS translation is user-confirmed; quantitative quality/latency validation remains open. Cross-platform capture/playback validation is still incomplete. The approved scope and durable rules are in [AGENTS.md](AGENTS.md); the milestone sequence is in the [roadmap](docs/roadmap.md).
 
 ## Completed
 
@@ -13,13 +13,13 @@ Milestone 3: exports, bounded recovery, gap records, and caption arrival instrum
 - MIT license, third-party licensing notes, and ignores for local secrets and private artifacts added.
 - Python packaging and `liltide` command implemented: `devices`, local `doctor`, `run --check-audio`, exact-ID source selection, RMS/peak meter, duration/sample-rate controls, and clean shutdown.
 - Native capture isolated in a spawned process with bounded queues, stall timeouts, and forced cleanup fallback. Level-check mode remains local-only; translation explicitly enables Azure transmission. No raw audio recording; transcript output requires explicit export flags.
-- 173 offline tests cover the capture/translation/recovery pipeline plus callback/handler timing, optional display/exit summaries, negative estimates, nullable fields, process serialization, and clock continuity across contexts.
+- 183 offline tests cover the capture/translation/recovery pipeline plus callback/handler timing, optional display/exit summaries, negative estimates, nullable fields, process serialization, and clock continuity across contexts.
 - Azure Speech adapter (separate native worker), combined Polish recognition/English translation, timestamps, bilingual/English-only captions, paced PCM16 WAV input, and interactive pause/resume implemented.
 - Cloud requires local environment credentials and explicit `--confirm-f0`; the agent has not accessed the account/resource or invoked live Azure calls. The user subsequently confirmed a working live session.
 
 ## Verification evidence
 
-Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rendered; small-size light/dark/monochrome previews visually inspected; intended text color pairs passed contrast checks. See [validation](docs/validation.md) for procedures, measurements, and the preview. Capture validation: editable install and wheel build passed; 28 tests passed; `pip check` passed. Host: macOS 27.0.1 (Darwin 27.0.0), arm64, Python 3.13.7; Typer 0.27.3, Rich 14.3.4, SoundCard 0.4.6, NumPy 2.5.4. Outside the sandbox, `doctor` discovered four inputs. A virtual-input test detected a synthetic 440 Hz tone at approximately -23 dBFS RMS / -20 dBFS peak, returned to digital silence, and completed a four-second run cleanly. No raw audio was saved or transmitted. The user subsequently reported that the requested real-lecture capture/playback check works. This is user-reported confirmation, not an independently observed rerun; individual check results and duration were not supplied. Physical microphone capture remains unverified. Translation validation: fake-provider/SDK tests pass; the user reports live translation works; quantitative quality/latency and comprehensive failure coverage remain unverified; a live interruption/recovery test is user-confirmed. Current full suite: 173 passed; wheel build and dependency checks pass. Added Azure Speech SDK 1.53.0 and SoXR 1.1.0 in the local environment.
+Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rendered; small-size light/dark/monochrome previews visually inspected; intended text color pairs passed contrast checks. See [validation](docs/validation.md) for procedures, measurements, and the preview. Capture validation: editable install and wheel build passed; 28 tests passed; `pip check` passed. Host: macOS 27.0.1 (Darwin 27.0.0), arm64, Python 3.13.7; Typer 0.27.3, Rich 14.3.4, SoundCard 0.4.6, NumPy 2.5.4. Outside the sandbox, `doctor` discovered four inputs. A virtual-input test detected a synthetic 440 Hz tone at approximately -23 dBFS RMS / -20 dBFS peak, returned to digital silence, and completed a four-second run cleanly. No raw audio was saved or transmitted. The user subsequently reported that the requested real-lecture capture/playback check works. This is user-reported confirmation, not an independently observed rerun; individual check results and duration were not supplied. Physical microphone capture remains unverified. Translation validation: fake-provider/SDK tests pass; the user reports live translation works; quantitative quality/latency and comprehensive failure coverage remain unverified; a live interruption/recovery test is user-confirmed. Current full suite: 183 passed; wheel build and dependency checks pass. Added Azure Speech SDK 1.53.0 and SoXR 1.1.0 in the local environment.
 
 ## Capability status
 
@@ -32,7 +32,7 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 | Text/JSONL exports | Implemented; user-generated files inspected | Matching text/JSONL captions/gaps, UTF-8/schema checked; no private content retained in docs |
 | Automatic cloud recovery and gap records | Implemented; live macOS test user-confirmed | Recovery exports match, with captions after gaps and two successful recognizer contexts; exact retry/downtime timing unmeasured |
 | Export run metadata | Implemented; offline-tested | Durable session headers, settings distinction, no identifier leakage, fail-fast cleanup; legacy files unchanged |
-| Python GUI | Deferred | Roadmap only |
+| Python GUI stage one | Implemented; offline-tested | Source/device selection, F0-gated Start/Stop, bilingual captions; 10 fake/offscreen tests and rendered layout; macOS GUI reported working by user; individual live checks/duration unspecified |
 | Caption arrival instrumentation | Implemented; offline-tested | Callback/handler timestamps, dispatch and provisional-to-final intervals; source-end delay explicitly estimated |
 | Accuracy and benchmark latency | Reference evaluation deferred by user | Live timing exports inspected; source-end delay remains estimated |
 
@@ -45,7 +45,7 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 ## Limitations and open verification
 
 - Name provisionally adopted; package, domain, and trademark availability unconfirmed.
-- Capture dependencies installed on macOS arm64/Python 3.13.7. Other OS/architectures, Python 3.11 compatibility, physical microphone permissions, and detailed/long-duration lecture validation still require testing. Azure SDK and SoXR are installed/tested locally; GUI dependency is not installed.
+- Capture dependencies installed on macOS arm64/Python 3.13.7. Other OS/architectures, Python 3.11 compatibility, physical microphone permissions, and detailed/long-duration lecture validation still require testing. Azure SDK and SoXR are installed/tested locally; Optional PySide6 6.12.0 is installed locally; macOS GUI is reported working by the user; detailed live checks remain open.
 - Sandbox discovery returned zero inputs; outside-sandbox discovery found four. Use a normal terminal for hardware checks. Initial live checks found a CoreAudio native-blocksize rejection and a silence-rendering overflow; both corrected and verified on retest.
 - User reports the configured live session works. Resource SKU/region/credentials have not been inspected by the agent; F0 remains an operator-confirmed requirement, not an independently verified billing claim.
 - Published free allowances are time-sensitive. Provider comparisons establish documented features, not measured Polish quality.
@@ -53,7 +53,7 @@ Documentation and asset QA passed: local links resolved; 8 SVGs parsed and rende
 
 ## Next actions
 
-1. Run-configuration metadata is implemented and offline-tested following user authorization. New normal CLI exports include it automatically; no historical settings are inferred. Further implementation (including GUI) requires its own authorized scope.
+1. Stage-one GUI is implemented and offline-tested following user authorization. The user reports the GUI works well on their macOS setup; do not infer specific checklist results or duration. Later GUI controls/styling require a separately authorized task; CLI advanced options remain available.
 2. Keep the future validation tasks below deferred until the user is ready; do not repeatedly request them as immediate next steps.
 3. Preserve the current evidence limits: macOS PoC/recovery are user-confirmed; reference-aligned accuracy/latency, 30-minute stability, and Windows/Linux support are not established.
 
@@ -118,3 +118,7 @@ These tasks remain incomplete and are not blockers for other authorized developm
 - 2026-10-29: User authorized run-configuration export metadata. New CLI text/JSONL exports start with one durable session header recording app version, provider/languages, input type, and requested/default segmentation. Headers exclude credentials, region, file/device identifiers, and environment values; older exports are unchanged. Header failures close files and prevent capture/provider startup. 173 offline tests passed, including fake CLI cases for all three input types and default/300 ms settings, header visibility, no default persistence, failure cleanup, and reconnect continuity. Wheel build, dependency and whitespace checks passed. No live cloud calls, private export changes, commit, or push.
 
 - 2026-10-29: User authorized committing and pushing pending caption timing instrumentation, export run metadata, and associated documentation/future-validation updates. Reviewed the selected source/tests/docs; 173 offline tests and whitespace checks passed. Private exports and local credentials remain excluded. No live cloud tests performed.
+
+- 2026-10-29: User authorized stage one of the PySide6 GUI PoC. Added optional GUI extra/entry point, background device discovery/session worker, F0/environment gates, bilingual finalized/provisional display, bounded/coalesced UI delivery, and cooperative Stop/close/startup/reconnect cancellation using the shared session core. Installed PySide6 6.12.0 locally and updated third-party notices. 183 offline tests passed (10 GUI checks), editable install/wheel/dependency/whitespace checks passed; offscreen empty-window layout rendered and visually inspected. No live Azure/capture run, transcript persistence, private export modification, commit, or push. Pause/export/theme controls and live GUI validation remain open; deferred release checks are unchanged.
+
+- 2026-10-29: User reported the GUI “works well” and authorized committing/pushing the stage-one implementation and documentation. Recorded macOS GUI operation as user-confirmed, without inferring individual checklist outcomes, session duration, release validation, or independent agent live tests. Private exports/credentials remain excluded.

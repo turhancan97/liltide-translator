@@ -92,3 +92,16 @@ Only Azure F0 is approved initially. Free allowances are limited; see the [provi
 Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. The translation PoC is implemented with offline tests. Caption callback timing is now recorded; reference-aligned accuracy/latency, longer-session reliability, and Windows/Linux validation are deferred future work; opt-in exports, bounded reconnect, and gap records are implemented and offline-tested; live macOS recovery is user-confirmed; measured timing and longer-session validation remain open.
 
 Original project code, documentation, and brand assets are covered by the [MIT License](LICENSE). Third-party software retains its own terms. Liltide is a provisional name; package, domain, and trademark availability are not established.
+
+## Desktop GUI PoC
+
+Stage one provides source/device selection, Start/Stop, and provisional/final bilingual captions. Install the optional GUI dependency in your activated virtual environment:
+
+```console
+python -m pip install -e ".[gui]"
+liltide-gui
+```
+
+Alternatively: `python -m liltide.gui`. Launch from the same terminal where you set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`; credentials are never entered or saved in the window. Refresh devices, choose your input, confirm that your resource is F0, then click Start translation. Opening the window or refreshing devices makes no cloud calls. See [GUI setup and limitations](docs/setup.md#desktop-gui-poc).
+
+This is an offline-tested desktop PoC; the user reports that it works well on their macOS setup. Detailed live checklist outcomes were not supplied. Pause/resume, export controls, theme override, and floating captions are later stages. Existing CLI features remain available.

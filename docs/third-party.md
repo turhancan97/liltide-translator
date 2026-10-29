@@ -27,7 +27,7 @@ Installed metadata inspected on 2026-10-28; this inventory records the local tes
 | NumPy | 2.5.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 |
 | CFFI (SoundCard dependency) | 2.1.1 | MIT-0 |
 
-Native system audio libraries are loaded from the operating system. Azure SDK and resampler dependencies were added in the translation milestone; GUI dependencies remain deferred. Redistributing dependencies/binaries requires retaining their actual notices; this summary does not replace those notices.
+Native system audio libraries are loaded from the operating system. Azure SDK and resampler dependencies were added in the translation milestone; PySide6 is now an optional GUI dependency. Redistributing dependencies/binaries requires retaining their actual notices; this summary does not replace those notices.
 
 
 ## Translation milestone additions
@@ -40,4 +40,10 @@ Installed artifacts inspected on 2026-10-28:
 | python-soxr | 1.1.0 | Installed metadata: LGPL-2.1-or-later; review native libsoxr notices before binary redistribution |
 | azure-core (SDK dependency) | 1.41.0 | Retain its version-specific upstream license/notices when redistributing |
 
-Liltide depends on these packages through normal installation; its own wheel does not bundle SDK or resampler binaries. Their terms remain independent of Liltide's MIT license. Future standalone installers must include a full transitive/native notice inventory and comply with the selected components' redistribution terms. No GUI library has been installed.
+Liltide depends on these packages through normal installation; its own wheel does not bundle SDK or resampler binaries. Their terms remain independent of Liltide's MIT license. Future standalone installers must include a full transitive/native notice inventory and comply with the selected components' redistribution terms. GUI installation details are recorded below.
+
+## Optional GUI dependencies — 2026-10-29
+
+PySide6, PySide6_Essentials, PySide6_Addons, and shiboken6 **6.12.0** were installed in the local ignored virtual environment. Installed metadata lists `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only`. The PySide6 installation also brought PySide6_Pdf and PySide6_WebEngine **6.12.0.140** transitively; this PoC uses only Qt Core/Widgets. No Qt binaries are bundled in Liltide's wheel. Keep component-specific notices and review all transitive/native terms before building standalone installers; Liltide's MIT license does not relicense Qt.
+
+Official [Qt for Python licensing overview](https://doc.qt.io/qtforpython-6/index.html) and [installation guidance](https://doc.qt.io/qtforpython-6/gettingstarted.html) checked 2026-10-29. Installation here is for local development, not a standalone distribution compliance audit.

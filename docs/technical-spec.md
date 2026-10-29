@@ -1,12 +1,12 @@
 # Technical specification
 
-Status: capture and translation PoC implemented with offline tests. Live Azure behavior, quality, and latency are unverified. Opt-in finalized text/JSONL exports are implemented and offline-tested. Bounded retries/reconnect and gap records are implemented and offline-tested; live recovery and cloud diagnostics remain unverified/unimplemented respectively.
+Status: capture/translation, opt-in exports, bounded recovery, timing, and stage-one GUI are implemented with offline tests. Live macOS CLI translation/recovery are user-confirmed; the GUI is also user-confirmed as working on macOS, with detailed checklist results unrecorded. Reference-aligned quality/latency and cross-platform release validation remain open. Cloud diagnostics are unimplemented.
 
 ## Scope and baseline
 
 Personal use first; lectures before interactive meetings. v1 supports Polish (`pl-PL`) to English (`en`) text only, on Windows, macOS, and Linux. No Liltide account, hosted backend, telemetry, speaker identification, meeting bot, or translated audio. Future language support must be configurable, but only this pair is accepted/tested in v1.
 
-Use Python 3.11+, standard `pyproject.toml` packaging and a `src/liltide` layout. Baseline dependencies: Typer, Rich, SoundCard, NumPy, a dedicated resampler (initial candidate: python-soxr), and Azure's Python Speech SDK. Use pytest and fake providers for application tests. Resolve compatible versions and native dependencies during the capture milestone; do not publish guessed minimum OS/architecture support. Future GUI: PySide6, added separately.
+Use Python 3.11+, standard `pyproject.toml` packaging and a `src/liltide` layout. Baseline dependencies: Typer, Rich, SoundCard, NumPy, a dedicated resampler (initial candidate: python-soxr), and Azure's Python Speech SDK. Use pytest and fake providers for application tests. Resolve compatible versions and native dependencies during the capture milestone; do not publish guessed minimum OS/architecture support. Stage-one GUI: optional PySide6 extra, sharing the same processing core.
 
 ## Architecture and data flow
 
@@ -110,3 +110,9 @@ Segment JSONL adds `arrival_ms`, `handled_ms`, `timing_source`, `dispatch_delay_
 The CLI constructs an allowlisted `RunMetadata` value from validated input type and requested segmentation setting, then passes it to `TranscriptExports`. No environment introspection is used. Enabled destinations receive one durable session header before source/provider creation, using the same session ID for all caption and gap records across recovery. Header-write errors close destinations and prevent startup. No enabled destinations means no persistence. Standalone exporter callers can omit metadata for compatibility.
 
 The versioned session record (`schema_version: 1`) contains app version, provider identifier, language pair, input type, requested segmentation silence, and explicit/default mode. It does not change segment/gap schemas or rewrite old exports. Null silence means no override requested, not a known numerical backend default. Settings are requests, not proof of backend behavior. Filenames, device identifiers, credentials, environment values, region, and wall-clock timestamps are excluded. Readers dispatch on record type and tolerate legacy headerless files. See [field definitions and example](setup.md#run-configuration-metadata).
+
+## Stage-one GUI architecture
+
+`liltide-gui` / `python -m liltide.gui` lazily loads Qt, leaving CLI installations independent of the optional GUI extra. The main thread owns widgets; QThread workers handle device discovery and the unchanged translation/capture/provider pipeline. A thread-safe stop event is passed as `TranslationSession.should_stop`; session polling, activation boundaries, and reconnect backoff check it without consuming terminal pause commands. Existing graceful final drain and native cleanup remain in effect.
+
+A 40 ms UI timer drains a bounded 256-event final-caption queue; one locked provisional/status slot coalesces intermediate updates. Overflow raises an actionable error and stops the session. Final captions are plain text (including literal markup characters); provisional and status widgets use explicit text labeling. Only source/device selection, F0 confirmation, Start/Stop, statuses, and bilingual captions are included. No GUI exports, audio files, settings persistence, segmentation tuning, pause controls, or theme override in this stage. Finished workers are joined before release, and closing is deferred until all workers finish. Optional dependency terms are recorded in [third-party notices](third-party.md).

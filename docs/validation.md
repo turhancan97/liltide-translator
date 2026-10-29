@@ -221,3 +221,15 @@ These deferrals do not establish benchmark latency, accuracy, long-session relia
 Full suite: **173 passed** (`python -m pytest -q`); wheel build, dependency check, and whitespace check passed. New offline tests cover text/JSONL headers visible before captions, default versus requested 300 ms settings, shared session IDs, invalid metadata rejection, no files/sidecars without export flags, header-failure cleanup, and failure before capture/provider construction. Fake CLI runs cover system/microphone/file inputs with both settings and verify absence of credentials, region, device identifiers, and file paths. Recovery tests verify exactly one header across reconnects. Legacy standalone exporters remain headerless unless metadata is supplied; historical user files are unchanged.
 
 These checks validate serialization/lifecycle and requested settings, not live Azure configuration application, platform capture, translation quality, or stability. No live cloud calls or private export edits were performed. Deferred long-session, reference accuracy, and Windows/Linux checks remain deferred.
+
+## Stage-one desktop GUI — 2026-10-29
+
+**183 offline tests passed**, including 10 optional offscreen GUI tests on the existing macOS arm64/Python 3.13.7 environment, using PySide6 6.12.0. Editable GUI installation, wheel build, dependency and whitespace checks passed. Empty-window screenshot rendered via Qt offscreen and visually inspected: readable labels, source/device row, F0 confirmation, Start/Stop, separate status/provisional text, and transcript area fit at 860×640. This checks layout, not real desktop theme/accessibility or audio.
+
+GUI tests use synthetic devices/providers only. They check F0/missing-credential gates before startup; source filtering; event-loop responsiveness; duplicate Start prevention; Stop cleanup and final drain; retention across runs without disk files; close deferral; provisional coalescing and bounded final backlog; fatal errors; retry-wait cancellation; cancellation before startup and during provider startup; and retryable discovery errors without exposing raw diagnostics. Existing CLI pause/recovery tests still pass after adding a separate stop callback. GUI tests skip when PySide6 is absent.
+
+No agent live capture or Azure calls were run. Opening/refreshing alone is not permission/routing/translation evidence. A short manually invoked GUI run remains unverified: confirm F0, choose routed input, start a non-private Polish source, observe bilingual captions, Stop, and close; verify audio remains audible and resources are released. Long-session, accuracy, and Windows/Linux checks remain user-deferred. GUI pause/resume/export controls and styling stages are not part of this milestone.
+
+### User GUI confirmation — 2026-10-29
+
+After receiving the GUI launch instructions, the user reported that it works well. This is user-reported confirmation on their macOS setup; individual capture/translation, Stop/close, playback, and duration results were not supplied. No independent agent live rerun followed. Deferred validation and other-platform evidence remain unchanged.
