@@ -33,7 +33,20 @@ liltide run --source system --device DEVICE_ID --confirm-f0
 liltide run --source file --file lecture.wav --confirm-f0 --view english
 ```
 
-`--confirm-f0` asserts you checked the resource tier; Liltide cannot verify it or enforce account-wide billing. Press `p` to pause/resume in an interactive terminal; Ctrl+C stops. Plain/piped output shows finalized captions only. No transcript files are saved. Temporary cloud failures currently stop the session; reconnect and exports are a later milestone.
+`--confirm-f0` asserts you checked the resource tier; Liltide cannot verify it or enforce account-wide billing. Press `p` to pause/resume in an interactive terminal; Ctrl+C stops. Plain/piped output shows finalized captions only. No transcript files are saved unless requested. Classified temporary connection failures trigger up to three fresh-context retries per run (1, 2, 4 seconds). Known authentication/quota errors stop immediately; no paid fallback is used.
+
+## Save finalized captions
+
+Create an export directory, then opt into either or both formats:
+
+```console
+mkdir -p exports
+liltide run --source system --device DEVICE_ID --confirm-f0 --export-text exports/session.txt --export-jsonl exports/session.jsonl
+```
+
+PowerShell users can create the folder with `New-Item -ItemType Directory -Force exports`. Choose fresh filenames for each run: existing files are never overwritten. Both formats contain Polish and English, regardless of the terminal's `--view`. Provisional captions are excluded. Every finalized segment is flushed and synced before display, so completed writes survive a process interruption. Exports may contain private speech; the `exports/` folder is ignored by Git. See [export details](docs/setup.md#file-input-and-exports).
+
+Connection interruptions appear as `[gap]` notices and, when export is enabled, `type: "gap"` JSONL records. Capture stops during recovery; stale audio is discarded. Saved captions remain in the same files/session. Gap intervals conservatively include audio that may be missing or unfinalized, and may be split into adjacent checkpoint/recovery records. See [recovery behavior and test steps](docs/setup.md#connection-recovery-and-gap-records).
 
 ## Intended first release
 
@@ -60,12 +73,12 @@ Lectures are the initial priority. Spoken output, speaker identification, SRT su
 
 ## Privacy and cost defaults
 
-Cloud mode transmits selected audio to Azure while running. No raw audio or transcript is saved locally by default; exports are not implemented yet. Provider-side retention is governed by the provider, not by Liltide's local saving settings.
+Cloud mode transmits selected audio to Azure while running. No raw audio or transcript is saved locally by default; text/JSONL exports require explicit flags. Provider-side retention is governed by the provider, not by Liltide's local saving settings.
 
 Only Azure F0 is approved initially. Free allowances are limited; see the [provider policy](docs/providers.md). An application estimate cannot enforce your Azure account's billing tier or account-wide consumption.
 
 ## Contributing and license
 
-Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. The translation PoC is implemented with offline tests. Next record measured quality/latency and validate reliability; exports and reconnect remain future work.
+Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. The translation PoC is implemented with offline tests. Next record measured quality/latency and validate reliability; opt-in exports, bounded reconnect, and gap records are implemented and offline-tested; live recovery and longer-session validation remain open.
 
 Original project code, documentation, and brand assets are covered by the [MIT License](LICENSE). Third-party software retains its own terms. Liltide is a provisional name; package, domain, and trademark availability are not established.

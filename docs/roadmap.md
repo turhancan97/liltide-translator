@@ -1,6 +1,6 @@
 # Features and roadmap
 
-Capture CLI and translation PoC implemented; macOS lecture capture/playback is user-confirmed. Live macOS translation is also user-confirmed; quantitative quality/latency and failure validation remain open. Reliability/exports and later milestones remain planned. Evidence lives in [CONTEXT.md](../CONTEXT.md).
+Capture CLI and translation PoC implemented; macOS lecture capture/playback is user-confirmed. Live macOS translation is also user-confirmed; quantitative quality/latency and failure validation remain open. Opt-in text/JSONL exports are implemented and offline-tested; bounded recovery and gap records are also implemented/offline-tested; live recovery, long-session validation, and later milestones remain open. Evidence lives in [CONTEXT.md](../CONTEXT.md).
 
 | Milestone | Deliverables | Completion gate |
 | --- | --- | --- |
@@ -21,8 +21,8 @@ Capture CLI and translation PoC implemented; macOS lecture capture/playback is u
 - [x] Provisional display updates and finalized-segment deduplication (offline tested).
 - [x] Elapsed timestamps, bilingual default, English-only option (offline tested).
 - [x] Pause/resume, clean termination, and explicit application buffer gap errors (offline tested; live cloud pending).
-- [ ] Text and JSONL exports only when requested; no raw recording.
-- [ ] Bounded retries/buffering, explicit quota/authentication errors.
+- [x] Text and JSONL exports only when requested; per-final-segment flush/sync and interruption tests pass; no raw recording.
+- [x] Bounded retries/buffering and structured quota/authentication errors (offline tests; live recovery pending).
 - [x] Color-independent status and readable non-interactive output (offline tested).
 - [ ] Free-only setup, privacy explanation, license notices, and verified platform matrix.
 

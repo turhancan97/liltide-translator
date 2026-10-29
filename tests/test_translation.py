@@ -89,6 +89,39 @@ def test_missing_translation_is_not_invented():
     assert caption_from_result(result, True).english is None
 
 
+@pytest.mark.parametrize("translations", [None, {}, {"en": ""}, {"en": " \t"}])
+def test_empty_english_normalizes_to_unavailable_but_polish_is_kept(translations):
+    result = SimpleNamespace(offset=0, duration=0, text="Polski tekst", translations=translations)
+    event = caption_from_result(result, True)
+    assert event.english is None and event.polish == "Polski tekst" and event.has_content
+
+
+@pytest.mark.parametrize("polish,english,expected", [
+    ("", "", False), (" \n", None, False), ("", " \t", False),
+    ("Polski tekst", None, True), ("", "English text", True),
+])
+def test_caption_content_is_checked_per_language(polish, english, expected):
+    assert Caption("0", 0, 1, polish, english, True).has_content == expected
+
+
+@pytest.mark.parametrize("value", [99, 5001])
+def test_segmentation_config_range_is_validated(monkeypatch, value):
+    monkeypatch.setenv("AZURE_SPEECH_KEY", "fake-key")
+    monkeypatch.setenv("AZURE_SPEECH_REGION", "westeurope")
+    with pytest.raises(AudioError, match="100 and 5000"):
+        CloudConfig.from_environment(True, value)
+
+
+@pytest.mark.parametrize("args", [
+    ["run", "--device", "fake", "--segmentation-silence-ms", "99"],
+    ["run", "--device", "fake", "--segmentation-silence-ms", "5001"],
+    ["run", "--check-audio", "--device", "fake", "--segmentation-silence-ms", "300"],
+])
+def test_segmentation_cli_rejects_invalid_or_local_only_use(args):
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code != 0
+
+
 def test_cancellation_does_not_mislabel_unknown_failure():
     assert "quota exhaustion is not confirmed" in cancellation_message("Unknown")
     assert "No paid fallback" in cancellation_message("TooManyRequests")
@@ -213,15 +246,24 @@ def test_cloud_cli_preflight_without_network(args, expected):
     assert expected in result.output
 
 
-def test_full_file_cli_with_fake_provider_no_exports(tmp_path, monkeypatch):
+@pytest.mark.parametrize("silence_ms", [None, 300])
+def test_full_file_cli_with_fake_provider_no_exports(tmp_path, monkeypatch, silence_ms):
     from liltide import provider as module
     path = tmp_path / "synthetic.wav"
     write_wav(path, rate=16000)
     monkeypatch.setenv("AZURE_SPEECH_KEY", "synthetic-private-key")
     monkeypatch.setenv("AZURE_SPEECH_REGION", "westeurope")
-    monkeypatch.setattr(module, "AzureProvider", lambda config: FakeProvider())
-    result = CliRunner().invoke(app, ["run", "--source", "file", "--file", str(path), "--confirm-f0", "--view", "english"])
+    configs = []
+    def provider_factory(config):
+        configs.append(config)
+        return FakeProvider()
+    monkeypatch.setattr(module, "AzureProvider", provider_factory)
+    args = ["run", "--source", "file", "--file", str(path), "--confirm-f0", "--view", "english"]
+    if silence_ms is not None:
+        args += ["--segmentation-silence-ms", str(silence_ms)]
+    result = CliRunner().invoke(app, args)
     assert result.exit_code == 0, result.output
     assert "EN: Hello" in result.output and "PL:" not in result.output
     assert "synthetic-private-key" not in result.output
+    assert configs[0].segmentation_silence_ms == silence_ms
     assert list(tmp_path.iterdir()) == [path]

@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 from queue import Queue
 from types import SimpleNamespace
+import pickle
 
 import pytest
 
@@ -19,8 +20,9 @@ class Signal:
             handler(event)
 
 
-@pytest.mark.parametrize("authentication_failure", [False, True])
-def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, authentication_failure):
+@pytest.mark.parametrize("failure_code", [None, "AuthenticationFailure", "TooManyRequests", "ConnectionFailure", "ServiceTimeout", "ServiceUnavailable", "RuntimeError", "DisconnectOnly", "ExceptionOnly"])
+@pytest.mark.parametrize("silence_ms", [None, 300, 5000])
+def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, failure_code, silence_ms):
     # Importing SDK code is local. All constructors/operations below are fake.
     import azure.cognitiveservices.speech as sdk
     monkeypatch.setattr(provider.signal, "signal", lambda *args: None)
@@ -29,8 +31,11 @@ def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, authenticatio
         def __init__(self, **kwargs):
             state['settings'] = self
             self.languages = []
+            self.properties = {}
         def add_target_language(self, language):
             self.languages.append(language)
+        def set_property(self, key, value):
+            self.properties[key] = value
     class Recognizer:
         def __init__(self, **kwargs):
             state['recognizer'] = self
@@ -40,9 +45,13 @@ def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, authenticatio
             self.session_stopped = Signal()
         def start_continuous_recognition_async(self):
             def get():
-                if authentication_failure:
-                    self.canceled.emit(SimpleNamespace(reason=sdk.CancellationReason.Error,
-                        error_code=sdk.CancellationErrorCode.AuthenticationFailure))
+                if failure_code:
+                    if failure_code == "ExceptionOnly":
+                        raise RuntimeError("synthetic-sensitive-native-detail")
+                    state['connection'].disconnected.emit(None)
+                    if failure_code != "DisconnectOnly":
+                        self.canceled.emit(SimpleNamespace(reason=sdk.CancellationReason.Error,
+                            error_code=getattr(sdk.CancellationErrorCode, failure_code)))
             return SimpleNamespace(get=get)
         def stop_continuous_recognition_async(self):
             state['stopped'] = True
@@ -55,6 +64,13 @@ def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, authenticatio
             result = SimpleNamespace(offset=10000000, duration=2000000,
                 text='Cześć', translations={'en': 'Hello'}, reason=sdk.ResultReason.TranslatedSpeech)
             r = state['recognizer']
+            # Azure can include a target key with an empty value after silence.
+            # Dictionary truthiness must not turn that event into a blank caption.
+            for source, translations in [("", {"en": ""}), (" \n", {"en": " \t"}), ("", None)]:
+                empty = SimpleNamespace(offset=0, duration=150000000, text=source,
+                    translations=translations, reason=sdk.ResultReason.TranslatedSpeech)
+                r.recognizing.emit(SimpleNamespace(result=empty))
+                r.recognized.emit(SimpleNamespace(result=empty))
             r.recognizing.emit(SimpleNamespace(result=result))
             r.recognized.emit(SimpleNamespace(result=result))
         def close(self):
@@ -67,18 +83,33 @@ def test_sdk_worker_configuration_callbacks_and_drain(monkeypatch, authenticatio
         return None
     monkeypatch.setattr(sdk.audio, "AudioStreamFormat", format)
     monkeypatch.setattr(sdk.audio, "AudioConfig", lambda **kwargs: None)
-    monkeypatch.setattr(sdk, "Connection", SimpleNamespace(
-        from_recognizer=lambda r: SimpleNamespace(disconnected=Signal())))
+    def connection(r):
+        state['connection'] = SimpleNamespace(disconnected=Signal())
+        return state['connection']
+    monkeypatch.setattr(sdk, "Connection", SimpleNamespace(from_recognizer=connection))
     incoming, events, errors = Queue(), Queue(), Queue()
     incoming.put(b'\x00\x00' * 100)
     incoming.put(None)
     ack = SimpleNamespace(value=0, get_lock=lambda: nullcontext())
-    provider._azure_worker(CloudConfig('fake-not-a-real-key', 'westeurope'), incoming, events, errors, ack)
+    provider._azure_worker(CloudConfig('fake-not-a-real-key', 'westeurope', silence_ms), incoming, events, errors, ack)
     assert state['settings'].speech_recognition_language == 'pl-PL'
     assert state['settings'].languages == ['en']
+    assert state['settings'].properties == (
+        {} if silence_ms is None else {sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs: str(silence_ms)})
     assert state['format'] == dict(samples_per_second=16000, bits_per_sample=16, channels=1)
-    if authentication_failure:
-        assert 'authentication' in errors.get_nowait()
+    if failure_code:
+        failure = errors.get_nowait()
+        assert failure.retryable == (failure_code in {"ConnectionFailure", "ServiceTimeout", "ServiceUnavailable", "DisconnectOnly"})
+        if failure_code == "DisconnectOnly":
+            assert failure.reason == "network_disconnect"
+        if failure_code == "ExceptionOnly":
+            assert failure.reason == "sdk_failure"
+            assert "synthetic-sensitive-native-detail" not in failure.message
+        if failure_code == "AuthenticationFailure":
+            assert 'authentication' in failure.message
+            assert failure.reason == "authentication_failure"
+        if failure_code == "TooManyRequests":
+            assert failure.reason == "rate_or_quota_limit"
         assert ack.value == 0
     else:
         result = []
@@ -133,3 +164,24 @@ def test_finish_timeout_always_aborts_worker(monkeypatch):
     with pytest.raises(AudioError, match="finalization exceeded"):
         list(p.finish())
     assert aborted
+
+
+def test_poll_delivers_queued_final_before_failure_and_discards_provisional():
+    p = AzureProvider.__new__(AzureProvider)
+    p.started = True
+    p.process = SimpleNamespace(is_alive=lambda: True)
+    p.events, p.errors = Queue(), Queue()
+    final = Caption("0", 0, 100, "Polski", "English", True)
+    p.events.put(Caption("0", 0, 100, "Polski", "English", False))
+    p.events.put(final)
+    failure = provider.ProviderFailure("Disconnected", "connection_failure", True)
+    p.errors.put(failure)
+    assert p.poll() == [final, failure]
+
+
+def test_failure_payload_preserves_classification_across_process_serialization():
+    failure = provider.ProviderFailure("Connection lost", "connection_failure", True)
+    restored = pickle.loads(pickle.dumps(failure))
+    assert restored == failure
+    error = restored.exception()
+    assert error.retryable and error.reason == 'connection_failure'

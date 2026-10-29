@@ -19,7 +19,7 @@ Windows PowerShell: use `py -3 -m venv .venv`, then `.venv\Scripts\Activate.ps1`
 
 Select an exact ID from `devices`, quoted if necessary. Use `--source microphone` for microphone capture. Omit `--duration` for continuous checks; Ctrl+C releases capture. `--sample-rate` defaults to 48000 Hz. The meter reports RMS/peak dBFS plus SIGNAL, SILENCE/LOW, or CLIPPING; silence or a moving meter alone does not prove correct routing. Non-finite samples and unsupported devices fail explicitly. In a non-interactive terminal it prints approximately one update per second; interactive output refreshes in place. `NO_COLOR` or `TERM=dumb` disables colored/animated terminal presentation.
 
-Run synthetic/offline tests with `python -m pytest -q`. Translation requires explicitly confirmed Azure F0 configuration as described below. WAV input and interactive pause/resume are implemented; exports, automatic reconnect, and `doctor --cloud` are not.
+Run synthetic/offline tests with `python -m pytest -q`. Translation requires explicitly confirmed Azure F0 configuration as described below. WAV input, interactive pause/resume, and opt-in text/JSONL exports are implemented; bounded reconnect and gap records are also implemented; `doctor --cloud` is not.
 
 If discovery returns zero devices inside a sandbox but succeeds in a normal terminal, test from that terminal. `doctor` does not verify recording permissions, and this project does not grant them automatically.
 
@@ -94,10 +94,72 @@ liltide run --source file --file lecture.wav --confirm-f0 --view english
 
 Use a short non-private Polish clip first. The tier confirmation flag is an operator assertion, not an Azure billing check. Do not pass it for S0. `--duration 30` bounds session wall time after stream readiness, including pauses; initialization/shutdown add some time. Press `p` to pause/resume when stdin is an interactive terminal; capture and the recognizer are released during pause. WAV replay retains its cursor. Resumption creates fresh recognition context. Ctrl+C stops and attempts a bounded final drain.
 
-Provisional text appears in place only in an interactive display; finalized captions are printed once with elapsed timestamps. `--view english` omits Polish display but recognition still uses Polish. Plain/piped output contains finalized captions and status lines without cursor control. Errors, queue overflow, and connection loss stop the PoC instead of silently dropping audio or automatically reconnecting. Read any final-drain warning: the last unfinished caption can be missing.
+Provisional text appears in place only in an interactive display; finalized captions are printed once with elapsed timestamps measured from session start (including connection setup). `--view english` omits Polish display but recognition still uses Polish. Plain/piped output contains finalized captions and status lines without cursor control. Classified transient Azure failures and provider-input backlog trigger bounded fresh-context recovery. Known auth/quota failures, unknown errors, source failures, and export errors stop the session. Read any final-drain warning: the last unfinished caption can be missing.
 
 The cloud SDK has its own internal buffers and service behavior; application queue limits are not proof of network delivery or a guaranteed latency bound. `doctor` remains entirely local; `doctor --cloud` deliberately fails without contacting Azure.
 
+## Tuning long finalized phrases
+
+Blank/whitespace-only events are filtered out of captions and exports. If Polish text exists but English is missing/blank, keep the source and export English as JSON `null` (text: `[translation unavailable]`). Recognized text is not automatically rewritten to sound more fluent.
+
+If final results combine too much speech, you can explicitly request a shorter pause threshold:
+
+```console
+liltide run --source system --device DEVICE_ID --confirm-f0 --segmentation-silence-ms 300
+```
+
+The accepted range is 100–5000 ms. This configures Azure's `Speech_SegmentationSilenceTimeoutMs`; it is a detected-silence threshold, **not** a maximum phrase duration or latency promise. Microsoft suggests 300 ms as one setting to try for long speech-recognition phrases, but its effects on this Polish-to-English translation path have not been measured. Translation-specific behavior can differ. Smaller values can split sentences and reduce translation context. Default: omit the flag to retain the service's existing settings. Local `--check-audio` rejects this cloud-only option. No fixed-length audio slicing, recognizer restarts, or automatic post-editing is used.
+
+Compare the same non-private clip with and without the option, using new export filenames. Review meaning as well as segmentation; export start/end timestamps alone cannot measure actual callback arrival delay. Sources checked 2026-10-29: [Microsoft timeout guidance](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-recognize-speech#change-how-silence-is-handled) and [translation configuration API](https://learn.microsoft.com/en-us/python/api/azure-cognitiveservices-speech/azure.cognitiveservices.speech.translation.speechtranslationconfig?view=azure-python).
+
 ## File input and exports
 
-Implemented file support is uncompressed PCM16 WAV, mono or stereo; rate conversion happens in the pipeline. Use synthetic or consented recordings kept outside version control. Text/JSONL export flags are not implemented yet. No local audio or transcript output files are created by the PoC; later opt-in exports should stay outside version control.
+Implemented file support is uncompressed PCM16 WAV, mono or stereo; rate conversion happens in the pipeline. Use synthetic or consented recordings kept outside version control. To retain finalized captions, explicitly request either or both formats. Create the parent folder first (`mkdir -p exports` on macOS/Linux; `New-Item -ItemType Directory -Force exports` in PowerShell):
+
+```console
+liltide run --source system --device DEVICE_ID --confirm-f0 --export-text exports/session.txt --export-jsonl exports/session.jsonl
+liltide run --source file --file lecture.wav --confirm-f0 --export-jsonl exports/file-session.jsonl
+```
+
+- Export flags are independent; without them no transcript files are created. They cannot be combined with `--check-audio`.
+- Files are created exclusively before capture/provider startup. Existing files, directories, or symlinks are refused, as is using the same path for both formats. Parent directories must already exist. Startup failure can leave new empty export files; choose new names or remove those empty files yourself before retrying.
+- Only finalized segments are exported, once per segment. Text includes elapsed start/end timestamps and `PL`/`EN` labels. JSONL is UTF-8 with one JSON object per finalized segment; Polish diacritics are preserved, embedded newlines are escaped, and unavailable translation is `null`.
+- `--view english` changes the terminal display only. Both exports always include Polish and English. No credentials, device metadata, status logs, provisional text, or raw audio are exported.
+- Each segment is written, flushed, and synced using the operating system before display. Previously completed records remain readable after Ctrl+C, provider failure, or abrupt process termination. This is not a guarantee against filesystem/hardware failure or preservation of a caption that has not finalized yet.
+- A write/flush/sync failure stops capture and the provider. The final record may be incomplete; retain complete JSONL lines before it. If both formats are enabled, one can contain a segment that the other failed to save. No rollback deletes previously saved speech.
+- Pausing/resuming keeps the same export files and session ID. New recognizer contexts get distinct segment IDs; no prior transcript is reopened or appended in a later run.
+- Current JSONL records use `type: "segment"`, `session_id`, `segment_id`, `start_ms`, `end_ms`, `source_language: "pl-PL"`, `target_language: "en"`, `source_text`, and `translation_text`. JSONL now also includes gap records; readers must branch on `type` rather than assuming every line contains caption text.
+
+Exports persist until you delete them. Keep them outside version control: the project ignores `exports/`, `transcripts/`, and `*.jsonl`; arbitrary `.txt` paths are not automatically ignored. No raw audio files are recorded.
+
+
+## Connection recovery and gap records
+
+Recovery is automatic in translation mode. A run gets at most **three reconnect attempts total**, waiting **1, 2, and 4 seconds**. The budget is not reset by success or pause/resume. Only classified connection failures, service timeouts/unavailability, generic disconnects without a more specific cancellation, startup timeouts, and provider-input backlog are retryable. Known invalid credentials, denied access, quota/rate limits, bad requests, unknown SDK/service errors, device/source failures, and export failures stop without an automatic retry. Quota and concurrent-request rejection cannot always be distinguished; neither is retried. The same F0 configuration/credentials are reused; no provider/resource/tier switch occurs.
+
+When a failure is detected, old capture and SDK workers are stopped and stale queues/resampler state discarded. Each attempt creates a new recognition context. Live capture restarts from current audio; missed speech is not replayed. WAV input keeps its consumed file cursor and pauses reading during recovery; consumed but unfinalized audio is not re-read. Already finalized captions remain in memory and in enabled exports. Queued final events are delivered before the provider failure. Native startup/drain timeouts still bound individual operations; `--duration` is checked during backoff, but a native initialization/shutdown operation can add time.
+
+A `[gap]` notice describes an uncertainty interval from the current context's last finalized boundary (or its start if none finalized) through failure/recovery. It is not proof that every millisecond was lost: it includes possibly unfinalized audio and reconnect setup. A synced gap checkpoint is written before waiting; another record closes the remaining interval on recovery, retry exhaustion, Ctrl+C, or duration expiry. Adjacent records with the same reason can describe one outage. Immediate failures can produce zero-duration markers. Source failures and failed final drains also produce notices; a deliberately paused/stopped session does not reconnect automatically during finalization. A connection error while pausing leaves the session paused until `p` requests resume. Ctrl+C cancels backoff; keyboard pause is processed in the main session loop after connection startup/wait returns.
+
+With exports enabled, text receives readable `[gap]` blocks and JSONL receives records with exactly:
+
+```json
+{"type":"gap","session_id":"example-session","start_ms":12500,"end_ms":15000,"reason":"connection_failure"}
+```
+
+Segment records retain their existing schema and share the same export `session_id` across reconnects. New context-prefixed `segment_id` values prevent collisions. Gap reasons are controlled codes (for example `connection_failure`, `network_disconnect`, `service_timeout`, `service_unavailable`, `startup_timeout`, `input_backlog`, `rate_or_quota_limit`, `authentication_failure`, `source_failure`), not raw SDK diagnostics or credentials. Gap writes use the same flush/sync/error handling as caption writes. A gap-export error stops recovery; previous records remain saved. No export flags still means no files.
+
+### Brief manual recovery test (not yet performed by the agent)
+
+1. In a normal terminal, confirm F0, keep the key local, and run with fresh filenames:
+
+   ```console
+   liltide run --source system --device DEVICE_ID --confirm-f0 --export-text exports/recovery-test.txt --export-jsonl exports/recovery-test.jsonl
+   ```
+
+2. Play a short non-private clip and wait for a finalized caption.
+3. Temporarily disconnect your computer's network. Observe the gap/reconnect status; SDK detection can take time. Restore connectivity when the retry message appears.
+4. Confirm captions resume, earlier captions remain, and both files include gap records with the same session ID. Ctrl+C should stop cleanly, including during backoff.
+5. Record actual status/errors, retry count, and platform. Do not infer exact lost-audio coverage or latency from gap duration. Failure to resume needs investigation rather than upgrading the resource.
+
+Offline fake-provider tests cover this behavior; a live disconnect test and a 30-minute session remain open. Azure error-code reference checked 2026-10-29: [CancellationErrorCode](https://learn.microsoft.com/en-us/python/api/azure-cognitiveservices-speech/azure.cognitiveservices.speech.cancellationerrorcode?view=azure-python).

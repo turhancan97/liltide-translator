@@ -5,6 +5,7 @@ import sys
 
 from rich.live import Live
 from rich.text import Text
+from liltide.formatting import timestamp
 
 
 class PauseControl:
@@ -36,13 +37,6 @@ class PauseControl:
         if self.previous is not None:
             import termios
             termios.tcsetattr(self.fd, termios.TCSADRAIN, self.previous)
-
-
-def timestamp(ms):
-    hours, remainder = divmod(max(0, ms), 3600000)
-    minutes, remainder = divmod(remainder, 60000)
-    seconds, millis = divmod(remainder, 1000)
-    return f"{hours:02}:{minutes:02}:{seconds:02}.{millis:03}"
 
 
 class CaptionRenderer:

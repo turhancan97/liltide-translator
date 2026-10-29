@@ -111,3 +111,44 @@ WCAG sRGB contrast ratios, rounded to two decimals:
 | Gray / white | 1.50:1 | Decorative only |
 
 Small text in the delivered banner/board uses ink on white or gray on ink. States use explicit text labels. The gray separators are decorative; meaningful caption boundaries use blue on white/ink. These are asset/document checks, not new application-test or accessibility claims about the future GUI.
+
+
+## Transcript exports — 2026-10-29
+
+Current full suite: **75 passed** using `python -m pytest -q`; wheel build, `pip check`, CLI help, and `git diff --check` passed. Existing macOS arm64/Python 3.13.7 environment; no dependencies added and no live cloud request invoked.
+
+New tests cover independent/both export flags, no default persistence, UTF-8 Polish text, escaped embedded newlines in JSONL, null translations, pre-close visibility, provisional exclusion, exclusive filenames, duplicate destinations, missing parents, partial-open rollback, and write/flush/fsync failures. Session tests cover final deduplication during EOF/shutdown, saved data through Ctrl+C and provider failure, pause/resume session/segment IDs, and source/provider cleanup on sink failures including final drain. Full fake-provider CLI tests verify English-only display still exports both languages and export preflight rejects existing files before cloud initialization.
+
+An isolated child process wrote and synced a JSONL record, then used `os._exit(7)` without context cleanup; the completed record remained readable in the parent. This verifies abrupt-process-exit survival of completed writes, not power-loss/hardware guarantees or preservation of unfinished captions. Filesystem failures may leave an incomplete final record; paired formats are not transactional.
+
+Live Azure export sessions, other-platform filesystem behavior, and 30-minute reliability remain unverified. Gap/reconnect records remain deferred; current exports contain finalized segment records only.
+
+
+## User export inspection — 2026-10-29
+
+Read the user-generated local text/JSONL pair without modifying it. Five finalized records matched exactly across formats, including text and start/end timestamps. JSONL parses cleanly with expected fields, one session ID, unique segment IDs, chronological/non-overlapping intervals, and no Unicode replacement characters. Both files end with a newline and are excluded by Git ignores.
+
+One record has empty source and translation text (0–15 seconds). The provider callback currently tests dictionary truthiness rather than translation-content truthiness, allowing an empty translation value to produce a blank caption. This is a confirmed code-path issue to fix; exports faithfully preserved the supplied event. Four records contain speech text, including segments spanning 24.28 and 26.80 seconds. These durations do not measure end-to-end delay. Some source/translated sentences are disfluent, but no reference audio/transcript was supplied, so recognition accuracy and precise error attribution remain unresolved. No private transcript content or session/device identifiers are retained in this record.
+
+
+## Export-review fixes — 2026-10-29
+
+Current full suite: **95 passed**. Wheel build, dependency check, and whitespace check passed. Fixed the blank-event issue identified in user exports: fake Azure events with empty/whitespace values or absent translation maps produce no caption; defensive session/export filters also reject blanks before deduplication. Regression tests ensure a blank final cannot consume a segment ID before a meaningful result, source-only captions remain, and blank English values become unavailable/JSON `null`.
+
+Optional `--segmentation-silence-ms` is validated at the CLI/config boundary and passed to the Azure property in fake-SDK tests, including values 300 and 5000; omission leaves the service setting unchanged. Full CLI tests verify option propagation. This tests configuration plumbing, not a measured translation segmentation improvement. No hard time slicing or content post-editing added. Original user text/JSONL files remain unchanged and ignored. Recognition accuracy, translation quality, and live latency still require reference audio and controlled review.
+
+
+## Second user export inspection — 2026-10-29
+
+Eight records matched exactly across UTF-8 text and JSONL, with valid schema, a single session, unique segment IDs, and chronological/non-overlapping timestamps. No blank or whitespace-only records. Durations: 21.92, 4.48, 0.96, 0.88, 2.88, 1.84, 3.56, and 4.60 seconds; median 3.22 seconds. First-phrase under-segmentation remains visible; later segments are shorter in this sample. Input and invocation are not controlled/matched to the previous run, so no causal claim about the optional threshold or latency improvement follows. Some idioms translate too literally; reference audio is still needed for recognition accuracy. Files were inspected without modification and remain excluded from Git; no transcript text or identifiers retained here.
+
+
+## Recovery and gap records — 2026-10-29
+
+Current full suite: **142 passed** with `python -m pytest -q`; wheel build, dependency check, and whitespace check passed. Same macOS arm64/Python 3.13.7 development environment; no live Azure call or network change made.
+
+New tests use fake clocks/providers and fake SDK operations. Cover exact cumulative 1/2/4-second backoff, three retries per run including after successful reconnects, transient startup recovery, no retries for known auth/quota/access/unknown failures, fatal errors during retry, fresh live sources/PCM, retained WAV cursor without replay, context-specific segment IDs, queued-final delivery before failure, Ctrl+C/duration cancellation in backoff, pause-drain behavior, final-drain/source errors, and cleanup on persistence failures. SDK tests check disconnect/cancellation ordering so specific auth/quota errors take precedence; generic disconnect fallback and redacted native exceptions are covered. Structured failure payloads survive process serialization.
+
+Gap exports are tested through both sinks and a full fake-provider CLI run: same export session across reconnect, finalized data retained, conservative/non-overlapping checkpoint and recovery intervals, synced checkpoint visible before retry wait, no credentials/caption text in gap records, and unchanged cloud config between attempts. Unknown errors never use heuristic error-text matching. Known fatal errors do not trigger retry or paid fallback.
+
+These tests establish application control flow and persistence, not live SDK detection timing, real network recovery, measured missing-audio coverage, other-platform hardware behavior, or 30-minute stability. Gap times express possible missing/unfinalized audio, not exact downtime or translation latency. Manual live interruption steps are in the setup guide and require explicit operator invocation against confirmed F0.

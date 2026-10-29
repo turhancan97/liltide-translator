@@ -108,6 +108,10 @@ def run(
     file: Annotated[Path | None, typer.Option("--file", help="PCM16 mono/stereo WAV input (requires --source file).")] = None,
     view: Annotated[View, typer.Option("--view")] = View.bilingual,
     confirm_f0: Annotated[bool, typer.Option("--confirm-f0", help="Confirm you checked this Azure resource uses the free F0 tier.")] = False,
+    export_text: Annotated[Path | None, typer.Option("--export-text", help="Save finalized Polish/English text to a new UTF-8 file.")] = None,
+    export_jsonl: Annotated[Path | None, typer.Option("--export-jsonl", help="Save finalized segments to a new UTF-8 JSONL file.")] = None,
+    segmentation_silence_ms: Annotated[int | None, typer.Option("--segmentation-silence-ms", min=100, max=5000,
+        help="Experimental Azure pause threshold; e.g. 300 for shorter phrases. Default: service setting. Not a phrase-length limit.")] = None,
 ):
     """Translate selected audio, or check levels locally. Ctrl+C stops."""
     if source == Source.file:
@@ -115,6 +119,8 @@ def run(
             fail("--source file requires --file and is incompatible with --device or --check-audio.")
     elif file:
         fail("--file requires --source file.")
+    if check_audio and (export_text is not None or export_jsonl is not None):
+        fail("--check-audio is incompatible with transcript exports.")
     if not check_audio:
         if source != Source.file and not device:
             fail("--device is required for live input. Run 'liltide devices'.")
@@ -123,25 +129,33 @@ def run(
             from liltide.session import TranslationSession
             from liltide.sources import LiveSource, WaveSource
             from liltide.terminal import CaptionRenderer, PauseControl
-            config = CloudConfig.from_environment(confirm_f0)
+            from liltide.exports import TranscriptExports
+            config = CloudConfig.from_environment(confirm_f0, segmentation_silence_ms)
             if source != Source.file:
                 # Reject wrong source/IDs before initializing any cloud resource.
                 SoundCardBackend().select(device, source.value)
             out = console()
-            out.print("Cloud mode: selected audio will be sent to Azure. --confirm-f0 is your assertion, not a billing-tier check. No local audio/transcript files are saved.")
+            out.print("Cloud mode: selected audio will be sent to Azure. --confirm-f0 is your assertion, not a billing-tier check. Raw audio is never saved locally.")
+            if segmentation_silence_ms is not None:
+                out.print(f"Experimental segmentation pause threshold: {segmentation_silence_ms} ms. Shorter phrases can reduce context; translation-service behavior requires live validation.")
+            if export_text is not None or export_jsonl is not None:
+                out.print("Transcript export enabled: finalized Polish and English text will be saved, independently of --view. Existing files will not be overwritten.")
+            else:
+                out.print("Transcript export disabled: no transcript files are saved.")
             if platform.system() == "Darwin" and source == Source.system:
                 out.print("Select a manually routed virtual input for system audio; source type cannot be inferred on macOS.")
             factory = (lambda: WaveSource(file)) if source == Source.file else (
                 lambda: LiveSource(device, source.value, sample_rate))
-            with CaptionRenderer(out, view.value) as renderer, PauseControl() as controls:
+            with TranscriptExports(export_text, export_jsonl) as exports, CaptionRenderer(out, view.value) as renderer, PauseControl() as controls:
                 session = TranslationSession(factory, lambda: AzureProvider(config), renderer.caption,
-                    renderer.status, controls, file_input=source == Source.file, duration=duration)
+                    renderer.status, controls, file_input=source == Source.file, duration=duration,
+                    on_finalized=exports.caption, on_gap=exports.gap)
                 session.run()
         except AudioError as exc:
             fail(str(exc))
         return
-    if confirm_f0 or view != View.bilingual:
-        fail("--check-audio is incompatible with --confirm-f0 or --view english.")
+    if confirm_f0 or view != View.bilingual or segmentation_silence_ms is not None:
+        fail("--check-audio is incompatible with --confirm-f0, --view english, or segmentation options.")
     if not device:
         fail("--device is required. Run 'liltide devices' and copy an exact ID.")
     out = console()
