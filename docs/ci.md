@@ -1,6 +1,6 @@
 # Automated repository checks
 
-The [Checks workflow](../.github/workflows/checks.yml) runs on pushes, pull requests, and manual dispatch. It needs no Azure credentials, audio hardware, repository secrets, or Gitleaks license key. GitHub-hosted execution is unverified until the workflow is pushed and its first run completes.
+The [Checks workflow](../.github/workflows/checks.yml) runs on pushes, pull requests, and manual dispatch. It needs no Azure credentials, audio hardware, repository secrets, or Gitleaks license key. GitHub-hosted runs [40953616220](https://github.com/turhancan97/liltide-translator/actions/runs/40953616220) and [40955144466](https://github.com/turhancan97/liltide-translator/actions/runs/40955144466) passed all five jobs on 2026-10-29. The latest verified run tested commit `717c843`: 259 tests passed on each of Python 3.11 and 3.13 on Ubuntu 24.04. See [hosted evidence](validation.md#hosted-ci-and-main-protection--2026-10-29).
 
 | Check | What it verifies | What it does not establish |
 | --- | --- | --- |
@@ -13,7 +13,23 @@ Tests use synthetic providers and cleared Azure environment values. Installation
 
 ## Workflow security and maintenance
 
-The workflow uses `pull_request`, not `pull_request_target`, read-only `contents` permission, no persisted checkout credentials, timeouts, and per-ref cancellation. Official checkout/setup-python actions are pinned to full commit SHAs. Fork pull requests do not require project secrets; these jobs do not deploy or publish anything. Passing jobs do not make checks mandatory for merging: maintainers can configure branch protection/rulesets separately after the first successful hosted run.
+The workflow uses `pull_request`, not `pull_request_target`, read-only `contents` permission, no persisted checkout credentials, timeouts, and per-ref cancellation. Official checkout/setup-python actions are pinned to full commit SHAs. Fork pull requests do not require project secrets; these jobs do not deploy or publish anything. Main-branch protection now requires these checks before merging, as described below.
+
+## Required checks on main
+
+On 2026-10-29, the user authorized and the GitHub API applied protection to `main`. Pull requests and an up-to-date branch are required, including for repository administrators. These exact required check names are bound to the GitHub Actions app (ID 15368):
+
+- `Offline tests and build (Python 3.11)`
+- `Offline tests and build (Python 3.13)`
+- `Dependency advisories`
+- `Committed secret scan`
+- `Local documentation links`
+
+Force pushes and branch deletion are disabled. Required approval count is zero: this requires a pull request and CI without needing a second maintainer to approve a solo contributor's PR. No code-owner or last-push approval requirement was added. Settings were read back from GitHub after applying them; no prohibited push was attempted as a test. These are repository settings, not a policy file enforced by the application.
+
+For changes, create a feature branch, push it, open a pull request into `main`, and wait for all five checks. If `main` advances, update the branch and rerun checks before merging. Keep job names stable; coordinate any workflow job renaming with the required-check settings. Do not bypass or disable protection to publish routine changes.
+
+The README's live badge uses `checks.yml/badge.svg?branch=main&event=push` and links to the workflow. It shows the latest relevant main push result, rather than a permanently green image or a guarantee about every branch, audio hardware, or application security. [GitHub badge documentation](https://docs.github.com/en/actions/how-tos/monitor-workflows/add-a-status-badge).
 
 Gitleaks CLI 8.30.1 is downloaded from its official release and verified against a pinned SHA-256 digest before extraction. A temporary explicit config extends its built-in rules; repository config/ignore files and inline `gitleaks:allow` comments cannot suppress this scan. The scan includes `--all HEAD` so synthetic pull-request merge commits and their ancestry are covered. It uses no findings baseline or credentials allowlist. Investigate failures with redacted output; do not commit real credentials to reproduce a finding. If a real credential is discovered, removing the text alone does not revoke it.
 
