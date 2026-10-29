@@ -76,6 +76,7 @@ Lectures are the initial priority. Spoken output, speaker identification, SRT su
 | [Features and roadmap](docs/roadmap.md) | Scope, milestones, and completion gates |
 | [Platform setup](docs/setup.md) | Installation, audio routing, and F0 configuration |
 | [Validation](docs/validation.md) | Documentation checks and future application acceptance tests |
+| [Automated checks](docs/ci.md) | Offline test/build, dependency and secret scans, documentation links |
 | [Provider comparison](docs/providers.md) | Dated comparison and Azure F0 rationale |
 | [Third-party licensing](docs/third-party.md) | Dependency and driver licensing boundaries |
 | [Agent guidance](AGENTS.md) | Durable instructions for future AI contributors |

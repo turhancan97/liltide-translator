@@ -78,7 +78,7 @@ Exploitation requires an attacker-controlled string to reach these sinks. The au
 
 These are follow-up improvements, not demonstrated exploits:
 
-- Add repeatable dependency checks and secret scanning in CI, plus a documented private vulnerability-reporting route when a maintainer contact is chosen. Currently there is no repository CI workflow or dependency lock file. Broad dependency ranges alone are not a vulnerability; a tested constraints/lock snapshot would improve reproducibility.
+- Automated dependency and committed-secret checks are now [configured in CI](ci.md), with local verification but hosted execution pending. A documented private reporting route and tested constraints/lock snapshot remain future work. Broad dependency ranges alone are not a vulnerability.
 - Document subprocess isolation accurately: spawned capture/provider processes are crash isolation, not an OS security sandbox. Review inherited environment variables so capture-only workers receive no unnecessary credentials.
 - Consider a deliberate retention limit for in-memory session/history data. Audio queues are bounded, but finalized text and GUI history can grow during prolonged use. No remotely exploitable memory-exhaustion attack was demonstrated.
 - Validate Windows export ACLs and native dependency security separately. POSIX mode `0600` was observed locally; it does not establish Windows confidentiality.

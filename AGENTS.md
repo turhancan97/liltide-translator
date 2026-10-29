@@ -29,6 +29,7 @@ Use the Liltide name, approved blue `#3a7eab`, red `#cf4832`, and gray `#d1d3d4`
 - The user subsequently authorized floating captions after pushing the pending branding/dropdown fixes. Treat the floating window as a presentation-only view of the same session: no second capture/provider, no implicit exports, close hides it, main-window shutdown still waits for cleanup. Synchronize language/font/theme controls and keep finalized/provisional labels explicit.
 - Do not publish the repository, register names, or contact third parties without explicit authorization.
 - On 2026-10-29, the user authorized identifier-safe parent/child diagnostics and exact macOS persistent-device identity resolution after investigation. Retain the selected UID in memory across capture contexts; fail closed on missing/ambiguous/unreadable identity, without name/default fallback or identifier exports/logs. This does not resume the separately deferred SEC-01 GUI Refresh selection repair or other security work.
+- The user subsequently authorized [automated GitHub checks](docs/ci.md): offline tests/builds, dependency advisories, committed secrets, and local documentation links. Keep Actions permissions read-only, actions pinned to full SHAs, scanner downloads checksum-verified, and checkout credentials unpersisted. No cloud credentials, audio capture, deployment, or publishing in CI. Do not add scanner suppressions to hide findings; report hosted jobs as unverified until actually run. Branch protection/settings changes require a separate request.
 
 ## Evidence and privacy
 
