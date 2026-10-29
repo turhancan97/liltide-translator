@@ -30,7 +30,7 @@ Text must meet WCAG AA contrast: 4.5:1 for normal text and 3:1 for large text; m
 
 Red is a brand accent, not an error state by itself. Pair every state with a word or icon; do not imply that the translation language is an error. No new terminal colors are forced because terminal backgrounds vary.
 
-Follow the system theme in the future GUI, with a manual override. Terminal output respects `NO_COLOR`, `TERM=dumb`, and non-interactive output. Never use color as the sole indication of errors, provisional text, recording state, or connection status.
+The GUI defaults to System theme, with Light/Dark manual overrides. Terminal output respects `NO_COLOR`, `TERM=dumb`, and non-interactive output. Never use color as the sole indication of errors, provisional text, recording state, or connection status.
 
 ## Logo assets
 
@@ -60,3 +60,9 @@ Do not stretch, rotate, add gradients/shadows, or place the logo on low-contrast
 ## Screenshots and terminal presentation
 
 Use synthetic Polish/English examples with elapsed timestamps. Never capture credentials, private meetings, or personal audio-device names. Label every unimplemented interface mockup “Concept — not implemented.” Later screenshots must identify the version and platform and show the actual interface. Keep the original audio experience uninterrupted where routing permits it; do not imply audio capture is active while paused.
+
+## Implemented desktop styling — 2026-10-29
+
+The Python GUI now reuses the original waveform symbol and exact blue/red/gray palette, with ink/white readable surfaces. Blue outlines identify Start/state accents; red accents identify Stop, provisional text, and focus without replacing words. Normal text is ink on white or white/gray on ink; selection uses ink on gray. Blue is not used for small text or white-on-blue button labels (that pair is only 4.42:1). Focus/accent graphics on white/ink meet 3:1. Checked controls have an explicit checkmark and boundary rather than color alone.
+
+The shipped symbol at `src/liltide/resources/symbol.svg` is an unchanged packaged copy of the canonical light SVG; keep both synchronized. `check.svg` is an original utility mark, not a replacement logo. System fonts and a 16 pt default caption size support the grouped/resizable layout. Light/dark themes and compact sizing were visually inspected offscreen; live OS theme and assistive-technology validation remain open. The earlier caption-card concepts remain labeled concepts and are not screenshots of this implementation.

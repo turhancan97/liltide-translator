@@ -567,3 +567,132 @@ def test_unchecked_export_paths_and_timing_do_not_create_files(window, qt, tmp_p
     assert list(tmp_path.iterdir()) == []
     assert '2 final captions received' in win.summary_label.text()
     assert win.summary_label.text().count('no samples.') == 3
+
+
+def test_appearance_changes_preserve_worker_history_and_export_configuration(window, qt, tmp_path):
+    win, sources, providers = window
+    enable_export(win, 'jsonl', tmp_path / 'appearance.jsonl')
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć' in win.transcript.toPlainText())
+    worker, history = win.worker, list(win.history)
+    for mode in ('dark', 'light', 'system'):
+        win.theme.setCurrentIndex(win.theme.findData(mode))
+        for size in (12, 26, 16):
+            win.caption_size.setCurrentIndex(win.caption_size.findData(size))
+            assert win.transcript.font().pointSize() == size
+            assert win.provisional.font().pointSize() == size
+        assert win.worker is worker and win.history == history
+        assert len(sources) == len(providers) == 1
+        assert win.export_controls['jsonl'][0].isChecked()
+        assert not win.export_controls['jsonl'][1].isEnabled()
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert win.last_summary['final_captions'] == 2
+
+
+def test_system_theme_follows_notifications_and_manual_override_is_stable(window, qt, monkeypatch):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QPalette
+    win, _, _ = window
+    assert win.theme.currentData() == 'system'
+    monkeypatch.setattr(win, 'system_theme', lambda: 'dark')
+    win.system_theme_changed(Qt.ColorScheme.Dark)
+    assert win.effective_theme == 'dark'
+    assert win.palette().color(QPalette.ColorRole.Window).name() == '#17212b'
+    win.theme.setCurrentIndex(win.theme.findData('light'))
+    win.system_theme_changed(Qt.ColorScheme.Dark)
+    assert win.effective_theme == 'light'
+    win.theme.setCurrentIndex(win.theme.findData('system'))
+    assert win.effective_theme == 'dark'
+    monkeypatch.setattr(win, 'system_theme', lambda: 'light')
+    win.system_theme_changed(Qt.ColorScheme.Light)
+    assert win.effective_theme == 'light'
+
+
+def test_small_window_keeps_setup_scrollable_and_caption_size_selection(window, qt):
+    win, _, _ = window
+    win.resize(760, 600)
+    win.show_timing.setChecked(True)
+    qt.processEvents()
+    assert win.setup_scroll.verticalScrollBar().maximum() > 0
+    assert win.transcript.width() > 200 and win.transcript.height() > 50
+    win.caption_size.setCurrentIndex(win.caption_size.findData(22))
+    assert win.transcript.font().pointSize() == 22
+    assert win.transcript.isReadOnly()
+
+
+def test_keyboard_controls_use_session_guards_and_skip_disabled_widgets(window, qt):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    win, sources, providers = window
+    discover(win, qt)
+    win.confirm.setChecked(True)
+    win.activateWindow()
+    win.raise_()
+    until(qt, win.isActiveWindow)
+    QTest.keyClick(win, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+    until(qt, lambda: win.state_label.text() == 'State: Running')
+    QTest.keyClick(win, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+    assert len(providers) == 1
+    QTest.keyClick(win, Qt.Key.Key_Space, Qt.KeyboardModifier.ControlModifier)
+    until(qt, lambda: win.state_label.text() == 'State: Paused')
+    QTest.keyClick(win, Qt.Key.Key_Period, Qt.KeyboardModifier.ControlModifier)
+    until(qt, lambda: win.worker is None)
+    assert sources[0].closed and providers[0].aborted
+    win.theme.setFocus()
+    QTest.keyClick(win.theme, Qt.Key.Key_Tab)
+    assert QApplication.focusWidget() is win.source
+
+
+@pytest.mark.parametrize('mode', ['light', 'dark'])
+def test_theme_text_and_selection_meet_normal_text_contrast(window, qt, mode):
+    from PySide6.QtGui import QPalette
+    win, _, _ = window
+    win.theme.setCurrentIndex(win.theme.findData(mode))
+    qt.processEvents()
+    def luminance(color):
+        values = [color.redF(), color.greenF(), color.blueF()]
+        linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in values]
+        return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
+    for text, background in [(QPalette.ColorRole.Text, QPalette.ColorRole.Base),
+                             (QPalette.ColorRole.HighlightedText, QPalette.ColorRole.Highlight)]:
+        palette = win.transcript.palette()
+        a, b = sorted([luminance(palette.color(text)), luminance(palette.color(background))])
+        assert (b + .05) / (a + .05) >= 4.5
+
+
+@pytest.mark.parametrize('mode', ['light', 'dark'])
+@pytest.mark.parametrize('name', ['theme', 'caption_size', 'view', 'source', 'device'])
+def test_dropdown_popup_fits_text_and_allows_selection(window, qt, mode, name):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QFont
+    from PySide6.QtTest import QTest
+    win, _, _ = window
+    win.resize(760, 600)
+    win.theme.setCurrentIndex(win.theme.findData(mode))
+    combo = getattr(win, name)
+    if name == 'device':
+        combo.addItem('Synthetic capture endpoint with a longer device name', 'synthetic-id')
+    font = QFont(combo.font())
+    font.setPointSize(18)
+    combo.setFont(font)
+    qt.processEvents()
+    combo.showPopup()
+    qt.processEvents()
+    try:
+        view = combo.view()
+        assert view.isVisible()
+        for row in range(combo.count()):
+            index = combo.model().index(row, 0)
+            rect = view.visualRect(index)
+            assert rect.width() <= view.viewport().width()
+            assert rect.width() >= combo.fontMetrics().horizontalAdvance(combo.itemText(row)) + 20
+            assert rect.height() >= combo.fontMetrics().height() + 12
+        last = combo.count() - 1
+        index = combo.model().index(last, 0)
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=view.visualRect(index).center())
+        assert combo.currentIndex() == last
+        if name == 'caption_size':
+            assert win.transcript.font().pointSize() == 26
+    finally:
+        combo.hidePopup()
