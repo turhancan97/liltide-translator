@@ -5,7 +5,7 @@ from queue import Empty, Full, Queue
 from threading import Event, Lock
 import sys
 
-from PySide6.QtCore import QThread, QTimer, Qt
+from PySide6.QtCore import QThread, QTimer, Qt, QSignalBlocker
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel,
@@ -22,6 +22,7 @@ from liltide.sources import LiveSource
 from liltide.timing import timing_summary
 from liltide import gui_theme
 from liltide.gui_controls import Dropdown
+from liltide.gui_floating import FloatingCaptions
 
 
 class DiscoveryWorker(QThread):
@@ -132,6 +133,10 @@ class MainWindow(QMainWindow):
         self.available_devices = []
         self.history = []  # Caption objects / None session separators, kept only in memory.
         self.last_summary = None
+        self.floating = FloatingCaptions(self)
+        self.floating.hidden.connect(self.floating_hidden)
+        self.floating.view_changed.connect(self.floating_view_changed)
+        self.floating.size_changed.connect(self.floating_size_changed)
         self.setWindowTitle('Liltide — Live captions across languages')
         self.resize(1100, 820)
         body = QWidget()
@@ -149,6 +154,7 @@ class MainWindow(QMainWindow):
         title = QLabel('Liltide')
         title.setObjectName('brandTitle')
         tagline = QLabel('Live captions across languages. · Polish → English')
+        tagline.setWordWrap(True)
         tagline.setObjectName('tagline')
         identity.addWidget(title)
         identity.addWidget(tagline)
@@ -162,6 +168,10 @@ class MainWindow(QMainWindow):
         theme_label.setBuddy(self.theme)
         header.addWidget(theme_label)
         header.addWidget(self.theme)
+        self.floating_button = QPushButton('Floating captions')
+        self.floating_button.setCheckable(True)
+        self.floating_button.toggled.connect(self.toggle_floating)
+        header.addWidget(self.floating_button)
         layout.addLayout(header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(self.splitter, 1)
@@ -328,7 +338,7 @@ class MainWindow(QMainWindow):
             shortcut.activated.connect(button.click)
             self.shortcuts.append(shortcut)
             button.setToolTip(f'{hint} ({QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)})')
-        focus_order = [self.theme, self.source, self.device, self.refresh, self.confirm]
+        focus_order = [self.theme, self.floating_button, self.source, self.device, self.refresh, self.confirm]
         for enabled, path, browse in self.export_controls.values():
             focus_order.extend((enabled, path, browse))
         focus_order.extend((self.start, self.pause, self.stop, self.view, self.caption_size,
@@ -352,6 +362,8 @@ class MainWindow(QMainWindow):
         self.effective_theme = self.system_theme() if mode == 'system' else mode
         self.setPalette(gui_theme.palette(self.effective_theme))
         self.setStyleSheet(gui_theme.stylesheet(self.effective_theme))
+        self.floating.setPalette(gui_theme.palette(self.effective_theme))
+        self.floating.setStyleSheet(gui_theme.stylesheet(self.effective_theme))
 
     def system_theme_changed(self, scheme):
         if self.theme.currentData() == 'system':
@@ -362,6 +374,34 @@ class MainWindow(QMainWindow):
         font.setPointSize(self.caption_size.currentData())
         self.transcript.setFont(font)
         self.provisional.setFont(font)
+        self.sync_floating_appearance()
+
+    def sync_floating_appearance(self):
+        self.floating.configure(self.view.currentData(), self.caption_size.currentData(), self.transcript.font())
+
+    def floating_view_changed(self, view):
+        self.view.setCurrentIndex(self.view.findData(view))
+
+    def floating_size_changed(self, size):
+        self.caption_size.setCurrentIndex(self.caption_size.findData(size))
+
+    def toggle_floating(self, visible):
+        if visible:
+            self.sync_floating_appearance()
+            self.floating.update_session(self.state_label.text(), self.current_provisional())
+            self.floating.show()
+        else:
+            self.floating.hide()
+
+    def floating_hidden(self):
+        with QSignalBlocker(self.floating_button):
+            self.floating_button.setChecked(False)
+
+    def current_provisional(self):
+        if self.worker:
+            with self.worker.lock:
+                return self.worker.provisional
+        return None
 
     def refresh_devices(self):
         if self.worker or self.discovery:
@@ -405,6 +445,7 @@ class MainWindow(QMainWindow):
             self.status.setText('Error: ' + str(exc).replace('then pass --confirm-f0', 'then check the F0 confirmation'))
             return
         self.worker = worker
+        self.floating.reset_session()
         self.last_summary = None
         self.summary_label.setText('Session summary: available after Stop or session completion.')
         self.history.append(None)
@@ -491,6 +532,7 @@ class MainWindow(QMainWindow):
                 worker.deleteLater()
         if self.closing and self.worker is None and self.discovery is None:
             self.close()
+        self.floating.update_session(self.state_label.text(), self.current_provisional())
 
     def drain_captions(self, worker):
         for _ in range(256):
@@ -500,6 +542,7 @@ class MainWindow(QMainWindow):
                 break
             self.history.append(event)
             self.transcript.appendPlainText(self.format_entry(event))
+            self.floating.finalized(event)
 
     def format_entry(self, event):
         if event is None:
@@ -539,6 +582,7 @@ class MainWindow(QMainWindow):
                 event = self.worker.provisional
         self.render_provisional(event)
         self.render_summary()
+        self.sync_floating_appearance()
 
     def render_summary(self):
         summary = self.last_summary
@@ -567,6 +611,7 @@ class MainWindow(QMainWindow):
             self.setEnabled(False)
             event.ignore()  # Never destroy/terminate a running native worker.
         else:
+            self.floating.hide()
             event.accept()
 
 

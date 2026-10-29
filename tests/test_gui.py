@@ -641,6 +641,8 @@ def test_keyboard_controls_use_session_guards_and_skip_disabled_widgets(window, 
     assert sources[0].closed and providers[0].aborted
     win.theme.setFocus()
     QTest.keyClick(win.theme, Qt.Key.Key_Tab)
+    assert QApplication.focusWidget() is win.floating_button
+    QTest.keyClick(win.floating_button, Qt.Key.Key_Tab)
     assert QApplication.focusWidget() is win.source
 
 
@@ -696,3 +698,103 @@ def test_dropdown_popup_fits_text_and_allows_selection(window, qt, mode, name):
             assert win.transcript.font().pointSize() == 26
     finally:
         combo.hidePopup()
+
+
+def test_floating_view_is_opt_in_and_close_only_hides_it(window, qt, tmp_path, monkeypatch):
+    from PySide6.QtCore import Qt
+    monkeypatch.chdir(tmp_path)
+    win, sources, providers = window
+    floating = win.floating
+    assert not floating.isVisible() and not win.floating_button.isChecked()
+    win.floating_button.click()
+    qt.processEvents()
+    assert floating.isVisible()
+    assert floating.windowFlags() & Qt.WindowType.WindowStaysOnTopHint
+    assert floating.testAttribute(Qt.WidgetAttribute.WA_MacAlwaysShowToolWindow)
+    assert not sources and not providers and list(tmp_path.iterdir()) == []
+    floating.close()
+    assert not floating.isVisible() and not win.floating_button.isChecked()
+    win.floating_button.click()
+    assert win.floating is floating and floating.isVisible()
+
+
+def test_floating_mirrors_session_and_language_size_controls(window, qt):
+    from PySide6.QtGui import QPalette
+    win, sources, providers = window
+    start_running(win, qt)
+    win.floating_button.click()
+    floating, worker = win.floating, win.worker
+    until(qt, lambda: 'Zażółć' in floating.final_text.toPlainText())
+    provisional = Caption('draft', 100, 200, '<b>Wstępny napis</b>', '<i>Draft caption</i>', False)
+    worker.caption(provisional)
+    until(qt, lambda: '<i>Draft caption</i>' in floating.provisional_text.toPlainText())
+    assert floating.provisional_text.toPlainText().startswith('Provisional\n')
+    assert floating.final_text.toPlainText().startswith('Finalized [')
+    floating.view.setCurrentIndex(floating.view.findData('english'))
+    assert win.view.currentData() == 'english'
+    assert 'PL:' not in floating.final_text.toPlainText() and 'EN: Hello' in floating.final_text.toPlainText()
+    assert 'PL:' not in floating.provisional_text.toPlainText()
+    floating.caption_size.setCurrentIndex(floating.caption_size.findData(26))
+    assert win.transcript.font().pointSize() == floating.final_text.font().pointSize() == 26
+    assert floating.provisional_text.font().pointSize() == 26
+    win.view.setCurrentIndex(0)
+    win.caption_size.setCurrentIndex(win.caption_size.findData(14))
+    assert 'PL: Zażółć' in floating.final_text.toPlainText() and floating.caption_size.currentData() == 14
+    for mode in ('dark', 'light'):
+        win.theme.setCurrentIndex(win.theme.findData(mode))
+        assert floating.palette().color(QPalette.ColorRole.Window) == win.palette().color(QPalette.ColorRole.Window)
+    assert win.worker is worker and len(sources) == len(providers) == 1
+
+
+def test_floating_hide_keeps_session_running_and_reopens_with_latest(window, qt):
+    win, sources, providers = window
+    start_running(win, qt)
+    win.floating_button.click()
+    until(qt, lambda: 'Zażółć' in win.floating.final_text.toPlainText())
+    worker = win.worker
+    win.floating.close()
+    assert not worker.stop_requested.is_set() and not sources[0].closed and not providers[0].aborted
+    worker.caption(Caption('extra', 200, 300, 'Najnowszy', 'Latest', True))
+    until(qt, lambda: 'Latest' in win.floating.final_text.toPlainText())
+    win.floating_button.click()
+    assert win.floating.isVisible() and 'Latest' in win.floating.final_text.toPlainText()
+    assert win.worker is worker and len(providers) == 1
+
+
+def test_floating_pause_stop_and_new_session_reset(window, qt):
+    win, _, _ = window
+    start_running(win, qt)
+    win.floating_button.click()
+    until(qt, lambda: 'Hello' in win.floating.final_text.toPlainText())
+    win.pause_session()
+    until(qt, lambda: win.floating.state.text() == 'State: Paused')
+    assert 'EN: End' in win.floating.final_text.toPlainText()
+    assert win.floating.provisional_text.toPlainText() == 'Provisional: —'
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert win.floating.state.text() == 'State: Stopped'
+    assert 'EN: End' in win.floating.final_text.toPlainText()
+    win.start_session()
+    assert win.floating.latest_final is None and not win.floating.final_text.toPlainText()
+    until(qt, lambda: 'Hello' in win.floating.final_text.toPlainText())
+
+
+def test_main_close_waits_for_worker_then_hides_floating(window, qt):
+    win, sources, providers = window
+    start_running(win, qt)
+    win.floating_button.click()
+    win.close()
+    until(qt, lambda: win.worker is None and not win.isVisible())
+    assert not win.floating.isVisible()
+    assert sources[0].closed and providers[0].aborted
+
+
+def test_floating_unicode_missing_translation_and_bounded_display(window, qt):
+    win, _, _ = window
+    win.floating.finalized(Caption('0', 0, 100, 'Zażółć <b>gęślą</b> jaźń', None, True))
+    assert 'Zażółć <b>gęślą</b> jaźń' in win.floating.final_text.toPlainText()
+    assert '[translation unavailable]' in win.floating.final_text.toPlainText()
+    win.floating.finalized(Caption('1', 100, 200, 'Kolejny', 'Next', True))
+    assert 'Kolejny' in win.floating.final_text.toPlainText()
+    assert 'Zażółć' not in win.floating.final_text.toPlainText()
+    assert not win.history  # Opening/rendering the secondary view never invents history.

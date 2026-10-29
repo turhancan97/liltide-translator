@@ -45,6 +45,7 @@ Offline inference, additional language pairs, SRT export, translated speech, spe
 - [x] Stage 2: pause/resume, English-only display (including existing history), and explicit session states; offline-tested and user-confirmed working on macOS; individual checklist results unspecified.
 - [x] Stage 3: optional text/JSONL destinations, caption timing toggle, and last-session summaries; offline-tested, live additions unverified.
 - [x] Stage 4: approved brand styling, System/Light/Dark themes, grouped/resizable layout, caption sizing, and keyboard controls; offline-tested/visually inspected.
-- [ ] Later GUI: floating captions and real desktop accessibility/theme checks; not authorized by stage-four implementation.
+- [x] Floating caption view: optional shared-session window, latest final/provisional text, synchronized language/font/theme; offline-tested.
+- [ ] Real desktop stacking/fullscreen, accessibility, and OS theme checks; remain unverified.
 
 The user authorized GUI stages one through four before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.
