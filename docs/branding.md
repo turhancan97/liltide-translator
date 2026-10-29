@@ -47,7 +47,8 @@ See the [rendered contact sheet](../assets/brand/preview.png) for all variants a
 
 ## Redesigned components
 
-- [README banner](../assets/brand/liltide-banner.svg): waveform/wordmark, tagline, and caption-line motif; used at the top of the README.
+- README banners: [light](../assets/brand/liltide-banner-light.svg) and [dark](../assets/brand/liltide-banner-dark.svg), with matching 1100×320 layout, original waveform, tagline, paired caption-line motif, and “POLISH → ENGLISH · CLI + DESKTOP” label. Light uses white/ink; dark uses ink/gray; both retain the exact blue/red accents. The [original filename](../assets/brand/liltide-banner.svg) is an identical light fallback for existing references.
+- The README uses GitHub's documented [`picture` pattern](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/quickstart-for-writing-on-github#adding-an-image-to-suit-your-visitors) with `prefers-color-scheme` sources and descriptive fallback alt text. Selection follows the browser's reported color-scheme preference; individual Markdown viewers may ignore this HTML or show only the fallback. Actual GitHub theme rendering remains to be checked after publication. No embedded SVG scripts, remote fonts, or external image resources.
 - [Brand board SVG](../assets/brand/brand-board.svg) and [PNG preview](../assets/brand/brand-board.png): exact palette swatches, light/dark wordmarks, and two caption cards.
 - Caption cards are labeled **Concept — not implemented**, use synthetic text, and demonstrate accessible finalized/provisional labels. They do not represent a shipped GUI or change the current terminal interface.
 

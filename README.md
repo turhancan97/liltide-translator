@@ -1,6 +1,10 @@
 # Liltide
 
-![Liltide — live captions across languages](assets/brand/liltide-banner.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/liltide-banner-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/brand/liltide-banner-light.svg">
+  <img alt="Liltide — live captions across languages. Polish to English, CLI and desktop." src="assets/brand/liltide-banner.svg" width="1100">
+</picture>
 
 **Live captions across languages.**
 
