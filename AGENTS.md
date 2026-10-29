@@ -28,6 +28,7 @@ Use the Liltide name, approved blue `#3a7eab`, red `#cf4832`, and gray `#d1d3d4`
 - The user subsequently authorized GUI stage four branding/usability: approved palette and original symbol, System/Light/Dark themes, grouped layout, caption sizing, and keyboard navigation. Keep appearance changes independent of session/provider/export state and local to the window; no persisted settings or OS appearance changes. Floating captions remain a separate later task. Packaged brand symbol must match the authoritative asset in `assets/brand/`.
 - The user subsequently authorized floating captions after pushing the pending branding/dropdown fixes. Treat the floating window as a presentation-only view of the same session: no second capture/provider, no implicit exports, close hides it, main-window shutdown still waits for cleanup. Synchronize language/font/theme controls and keep finalized/provisional labels explicit.
 - Do not publish the repository, register names, or contact third parties without explicit authorization.
+- On 2026-10-29, the user authorized identifier-safe parent/child diagnostics and exact macOS persistent-device identity resolution after investigation. Retain the selected UID in memory across capture contexts; fail closed on missing/ambiguous/unreadable identity, without name/default fallback or identifier exports/logs. This does not resume the separately deferred SEC-01 GUI Refresh selection repair or other security work.
 
 ## Evidence and privacy
 
@@ -43,6 +44,6 @@ On 2026-10-29, the user deferred the long-session test (delay, memory, pause/res
 
 ## Handoff
 
-On 2026-10-29, the user deferred the security-review repairs and additional hardening as [future security work](docs/roadmap.md#future-security-work--deferred-by-the-user). Keep SEC-01/02/03 open and their evidence in [the review](docs/security-review.md). Do not initiate these repairs or tooling upgrades until the user resumes that work; deferral does not establish security or close release risks.
+On 2026-10-29, the user initially deferred security work, then explicitly resumed SEC-01/02/03 repairs and installer upgrades. Preserve explicit initial device selection and clear lost/ambiguous selections; match persistent identities when retaining macOS selections. Escape untrusted controls at terminal/text boundaries, preserve decoded JSONL data, and keep installer/advisory checks current. Track repair evidence and remaining hardening in the [security follow-up](docs/roadmap.md#security-follow-up) and [review](docs/security-review.md). Additional hardening suggestions remain future work; completing these repairs does not establish comprehensive security.
 
 After each meaningful development task, update [CONTEXT.md](CONTEXT.md) with completed work, actual verification, limitations/blockers, and next steps. Keep it concise; link to specifications instead of copying them. Update authoritative guides when behavior changes. Do not mark planned tests as passed or replace missing measurements with targets.

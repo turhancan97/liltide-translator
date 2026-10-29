@@ -9,6 +9,7 @@ Python 3.11+ is required; the current local run uses Python 3.13.7. From the pro
 ```console
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade "pip>=26.2.2"
 python -m pip install -e ".[dev]"
 liltide devices
 liltide doctor
@@ -279,6 +280,14 @@ Qt is asked to keep this tool window on top and keep it visible while the app is
 
 The user explicitly authorized the live check, launched the GUI from the credentialed terminal, and reconfirmed F0. Credentials/account settings were not inspected. A locally generated 17.3 s Polish clip (macOS Zosia voice, synthetic test script) was played directly to BlackHole. No microphone or private recording was used, and system output routing was unchanged; audible lecture playback was not independently checked.
 
-The first attempts exposed a capture-child **Device ID not found** error even after Refresh. Full GUI restart then allowed the test to proceed. If this recurs, Stop, refresh/reselect the virtual input, and restart the GUI from the configured terminal if necessary. The underlying cause remains unresolved; do not treat restart as a code fix or silently fall back to a microphone. Create the export parent folder first: preflight correctly refused the initially missing folder.
+The first attempts exposed a capture-child **Device ID not found** error even after Refresh. Full GUI restart then allowed the test to proceed. macOS now carries the selected persistent device identity into the capture child and resolves its current numeric ID there. This handles numeric-ID reassignment in tests; the original incident's trigger remains unresolved. If capture fails, the message distinguishes **Parent device validation** from **Capture child device selection** and reports whether the persistent identity is missing, ambiguous, or unavailable, with input counts but no identifiers. Stop, reconnect the intended virtual input, refresh, and explicitly verify its selection before restarting. A full app restart remains a workaround if native enumeration is inconsistent, not a proven repair. SEC-01 is now repaired: initial device choice is explicit, and Refresh clears lost/ambiguous selections instead of choosing a replacement. Create the export parent folder first: preflight correctly refused the initially missing folder.
 
 The successful run verified bilingual provisional/final captions, floating-window language/font synchronization (English-only/26 pt), close-floating-without-stop, pause/resume followed by new translated speech, and Stop with zero remaining capture/provider children. Text/JSONL exports contained one header/session and two final captions from distinct contexts, with no gaps and matching timing/summary fields. Cross-app stay-on-top/fullscreen behavior was not reliably verified; it remains a separate desktop check. Earlier failed-attempt exports correctly contain header plus source-failure gap, not speech. The short synthetic check is not reference accuracy, a latency benchmark, long-session validation, or other-platform evidence.
+
+## Security maintenance
+
+Upgrade pip in each project/build environment before installing dependencies: `python -m pip install --upgrade "pip>=26.2.2"`. The local project environment was upgraded and audited on 2026-10-29; this does not update other installations. Keep using trusted package indexes and check new advisory results when dependencies change.
+
+GUI discovery leaves the input unselected initially. Choose the intended device explicitly. Refresh retains only the same unique input (by persistent UID on macOS); a lost or ambiguous input clears selection and blocks Start until reselection.
+
+Terminal/text exports show embedded control characters as visible escapes such as `\x1b` and `\n`. Ordinary Polish text remains readable. JSONL retains original decoded text with controls escaped in the file; existing exports are not rewritten.

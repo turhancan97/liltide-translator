@@ -44,12 +44,14 @@ def test_invalid_requests_never_capture(monkeypatch, args, message):
 
 def test_devices_treat_names_as_text(monkeypatch):
     monkeypatch.setattr(cli, "SoundCardBackend", lambda: SimpleNamespace(
-        system="Darwin", devices=lambda: [Device("42", "[red]Synthetic[/red]", 2, "routed input")]))
+        system="Darwin", devices=lambda: [Device("42", "[red]Synthetic[/red]\x1b]52;c;test\x07\nforged", 2, "routed input")]))
     result = runner.invoke(cli.app, ["devices"], env={"NO_COLOR": "1"}, terminal_width=160)
     assert result.exit_code == 0
     assert "[red]Synthetic[/red]" in result.output
     assert "cannot be classified" in result.output
     assert "\x1b" not in result.output
+    assert r'\x1b]52;c;test' in result.output and r'\nforged' in result.output
+    assert '\x07' not in result.output
 
 
 def test_doctor_failure_actionable(monkeypatch):

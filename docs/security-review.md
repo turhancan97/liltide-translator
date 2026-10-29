@@ -1,7 +1,15 @@
 # Security review — 2026-10-29
 
 Reviewed application snapshot: `4ee1b595f8d5566bc67c7ae686332b56ff6d72ad`.
-Status: initial review completed; findings below remain open. On 2026-10-29 the user deferred repairs as [future security work](roadmap.md#future-security-work--deferred-by-the-user). Application code and the project environment were not changed by this review.
+Status: the initial findings below describe the reviewed snapshot. The user initially deferred repairs, then resumed them on 2026-10-29. SEC-01/02/03 are now remediated in the working tree/local environment with the verification below; additional hardening remains [future work](roadmap.md#security-follow-up). The initial review itself changed no application code/environment.
+
+## Repair verification — 2026-10-29
+
+- **SEC-01:** GUI requires an explicit first input choice. Refresh clears a lost selection and prevents worker creation until the user chooses again. Stored persistent UID, rather than numeric ID alone, retains the same macOS device through refresh/reordering/reassignment. Synthetic GUI tests cover a microphone remaining, empty lists, numeric-ID reuse, and identity-preserving renumbering. No microphone was opened for these tests.
+- **SEC-02:** Only the project's local virtual-environment pip was upgraded, from 25.2 to 26.2.2. pip-audit 2.10.1 rescanned 37 distribution records, skipped editable Liltide, and reported zero advisory rows. This closes the six installer findings for this scanned environment; it does not upgrade other users or comprehensively scan native bundled libraries. See patched [pip release information](https://pip.pypa.io/en/stable/news/).
+- **SEC-03:** C0/C1 controls and embedded field line separators are rendered visibly in terminal captions (provisional/final), status/errors, device listing and text exports. App-generated layout newlines remain. JSONL escapes C1/separators in addition to standard JSON C0 escaping, preserving decoded original values and normal Polish UTF-8. Synthetic ESC/OSC/CSI, CR/backspace, NUL/DEL, tabs, line-break spoofing, and Unicode tests use memory buffers/temporary files, never interactive terminal payloads. Existing private exports are not rewritten.
+
+The full offline suite and documentation/build verification are recorded in [validation](validation.md#security-fixes--2026-10-29). Bandit 1.9.4 rescanned production source with zero findings/errors. These repairs are not a security certification. No live capture/cloud test was run in this repair task; other platform, Git-history, native-library, and account-configuration limits still apply.
 
 ## Scope and evidence
 
@@ -17,7 +25,7 @@ Reviewed audio selection, subprocess boundaries, credentials, WAV input, caption
 
 Scanners were installed into an isolated temporary environment, not the project environment. Dependency metadata was queried against public advisory data; source code and private exports were not uploaded. The existing 225-test result predates this audit; the full application suite was not rerun for this documentation-only task.
 
-## Findings, in recommended repair order
+## Original findings, in recommended repair order
 
 ### SEC-01: lost GUI input selection can silently select a microphone
 

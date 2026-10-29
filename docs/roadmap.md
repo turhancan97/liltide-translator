@@ -15,7 +15,7 @@ Capture CLI and translation PoC implemented; macOS lecture capture/playback is u
 
 - [x] Device enumeration/selection and actionable local diagnostics (capture permissions/routing need live validation).
 - [ ] System audio capture on each target OS with original audio still audible.
-- [ ] Optional microphone capture path implemented; no mixing intended, but the GUI can silently replace a lost virtual input with a microphone after Refresh (SEC-01 repair and hardware validation pending).
+- [x] Optional microphone capture path implemented; explicit initial selection and no silent replacement after Refresh (offline-tested; microphone hardware validation pending).
 - [x] Paced PCM16 WAV input using the shared processing pipeline (offline tested).
 - [x] Azure continuous Polish transcription and English translation adapter (fake SDK tested; live service unverified).
 - [x] Provisional display updates and finalized-segment deduplication (offline tested).
@@ -35,16 +35,16 @@ Deferred on 2026-10-29 because the user cannot perform these tasks right now. No
 - [ ] **Accuracy review:** Compare a few minutes against the original audio/reference transcript, focusing on missing words, numbers, and preservation of meaning in the English translation.
 - [ ] **Windows/Linux validation:** Test installation, audio-source selection, system capture, and audible playback on both platforms; record actual OS/runtime/backend versions and setup limitations.
 
-## Future security work — deferred by the user
+## Security follow-up
 
-Deferred on 2026-10-29 after the initial [security review](security-review.md). These findings remain open; no repair or delivery date is established. Implement when the user resumes this work, in this priority order:
+Initially deferred on 2026-10-29 after the [security review](security-review.md); the user subsequently resumed the three finding repairs. Implementation and local verification are recorded below; broader hardening remains future work.
 
-- [ ] **SEC-01 — Prevent unintended microphone selection:** Clear a lost GUI device selection and require deliberate reselection before Start. Verify with fake devices, including reordered and empty lists.
-- [ ] **SEC-02 — Update installer tooling:** Upgrade affected pip environments to a patched release and rerun dependency audits. The review found six distinct pip 25.2 advisories with installation/download prerequisites; no project environment was upgraded.
-- [ ] **SEC-03 — Sanitize terminal/text output:** Neutralize terminal control characters in captions, device/status output, and human-readable exports; preserve Polish Unicode and verify with in-memory tests.
+- [x] **SEC-01 — Prevent unintended microphone selection:** Initial input choice is explicit; loss clears selection and blocks worker creation until reselection. macOS refresh retains exact UID across numeric-ID changes and rejects reused IDs for a different UID. Synthetic GUI cases cover microphone remaining, empty lists, and reorder/reassignment.
+- [x] **SEC-02 — Update installer tooling:** Local project pip upgraded from 25.2 to 26.2.2; pip-audit reports zero known advisories for the installed environment on 2026-10-29. Bootstrap instructions require patched pip; other users/build environments must update separately.
+- [x] **SEC-03 — Sanitize terminal/text output:** Shared visible escaping for C0/C1 controls and embedded line breaks in captions, device/error/status output and human-readable exports. JSONL escapes controls while retaining decoded data and ordinary Polish Unicode. Synthetic memory-buffer/export tests pass.
 - [ ] **Additional hardening:** Evaluate dependency/secret scanning in CI, repeatable dependency snapshots, a private reporting contact, minimal child-process environments, deliberate text-history retention, Windows export ACLs, and native dependency coverage. These are review suggestions, not demonstrated exploits.
 
-Detailed evidence, prerequisites, limitations, and repair acceptance criteria remain in the review. Deferral does not resolve the findings or establish release security.
+Detailed original findings and repair evidence remain in the review. Offline/local verification does not establish comprehensive security, native-library coverage, or Windows/Linux release readiness.
 
 ## Deferred
 

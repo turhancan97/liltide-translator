@@ -18,6 +18,7 @@ from rich.text import Text
 from liltide import __version__
 from liltide.audio import AudioError, SoundCardBackend, backend_hint
 from liltide.capture import capture_levels
+from liltide.text_safety import safe_text
 
 app = typer.Typer(no_args_is_help=True, invoke_without_command=True, add_completion=False, pretty_exceptions_enable=False,
                   help="Liltide: local audio diagnostics and Polish-to-English captions via Azure F0.")
@@ -40,7 +41,7 @@ def console():
 
 
 def fail(message):
-    console().print(f"Error: {message}", markup=False)
+    console().print(Text(f"Error: {safe_text(message)}"))
     raise typer.Exit(1)
 
 
@@ -64,7 +65,8 @@ def devices():
     for column in ("ID (copy exactly)", "Name", "Type", "Channels"):
         table.add_column(column, overflow="fold", no_wrap=False)
     for device in inputs:
-        table.add_row(Text(device.id), Text(device.name), device.kind, str(device.channels))
+        table.add_row(Text(safe_text(device.id)), Text(safe_text(device.name)),
+                      Text(safe_text(device.kind)), str(device.channels))
     out.print(table)
     if not inputs:
         out.print("No capture inputs found. " + backend_hint(backend.system))
@@ -137,7 +139,10 @@ def run(
             config = CloudConfig.from_environment(confirm_f0, segmentation_silence_ms)
             if source != Source.file:
                 # Reject wrong source/IDs before initializing any cloud resource.
-                SoundCardBackend().select(device, source.value)
+                try:
+                    device = SoundCardBackend().bind(device, source.value)
+                except AudioError as exc:
+                    raise AudioError(f'Parent device validation failed: {exc}') from exc
             out = console()
             out.print("Cloud mode: selected audio will be sent to Azure. --confirm-f0 is your assertion, not a billing-tier check. Raw audio is never saved locally.")
             if segmentation_silence_ms is not None:

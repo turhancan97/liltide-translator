@@ -31,6 +31,10 @@ def until(qt, predicate, timeout=3):
 
 
 class Backend:
+    def bind(self, device, source):
+        self.select(device, source)
+        return device
+
     def devices(self):
         return [Device('system-id', 'Synthetic loopback', 2, 'system'),
                 Device('mic-id', 'Synthetic microphone', 1, 'microphone')]
@@ -108,6 +112,8 @@ def window(qt, monkeypatch):
 def discover(window, qt):
     window.refresh_devices()
     until(qt, lambda: window.discovery is None)
+    if window.device.currentIndex() < 0 and window.device.count():
+        window.device.setCurrentIndex(0)  # Explicit operator choice in this fixture.
 
 
 def test_f0_and_credentials_gate_no_start(window, qt, monkeypatch):
@@ -126,7 +132,45 @@ def test_device_selection_filters_without_silent_fallback(window, qt):
     discover(win, qt)
     assert win.device.currentData() == 'system-id' and win.device.count() == 1
     win.source.setCurrentIndex(1)
-    assert win.device.currentData() == 'mic-id' and win.device.count() == 1
+    assert win.device.currentData() is None and win.device.count() == 1
+    win.device.setCurrentIndex(0)
+    assert win.device.currentData() == 'mic-id'
+
+
+@pytest.mark.parametrize('remaining', ['microphone', 'empty', 'reused-id', 'ambiguous'])
+def test_lost_virtual_input_never_creates_worker_without_reselection(window, qt, remaining):
+    win, sources, providers = window
+    discover(win, qt)
+    win.available_devices = [Device('virtual', 'Synthetic virtual input', 2, 'routed input', 'virtual-uid')]
+    win.populate_devices()
+    win.device.setCurrentIndex(0)
+    win.available_devices = ([] if remaining == 'empty' else [
+        Device('virtual' if remaining == 'reused-id' else 'mic', 'Synthetic microphone', 1,
+               'routed input', 'microphone-uid')])
+    if remaining == 'ambiguous':
+        win.available_devices = [Device('one', 'Synthetic duplicate', 2, 'routed input', 'virtual-uid'),
+                                 Device('two', 'Synthetic duplicate', 2, 'routed input', 'virtual-uid')]
+    assert win.populate_devices()
+    assert win.device.currentIndex() == -1 and win.device.currentData() is None
+    assert 'no longer available' in win.status.text()
+    win.confirm.setChecked(True)
+    win.start_session()
+    assert win.worker is None and not sources and not providers
+    assert 'Select a capture device' in win.status.text()
+
+
+def test_initial_discovery_requires_selection_and_refresh_retains_exact_uid(window, qt):
+    win, _, _ = window
+    win.refresh_devices()
+    until(qt, lambda: win.discovery is None)
+    assert win.device.currentIndex() == -1
+    win.available_devices = [Device('old-id', 'Synthetic virtual', 2, 'routed input', 'virtual-uid')]
+    win.populate_devices()
+    win.device.setCurrentIndex(0)
+    win.available_devices = [Device('old-id', 'Synthetic microphone', 1, 'routed input', 'mic-uid'),
+                             Device('new-id', 'Synthetic virtual', 2, 'routed input', 'virtual-uid')]
+    assert not win.populate_devices()
+    assert win.device.currentData() == 'new-id'
 
 
 def test_responsive_stop_drains_final_and_retains_prior_text(window, qt, tmp_path, monkeypatch):
@@ -798,3 +842,36 @@ def test_floating_unicode_missing_translation_and_bounded_display(window, qt):
     assert 'Kolejny' in win.floating.final_text.toPlainText()
     assert 'Zażółć' not in win.floating.final_text.toPlainText()
     assert not win.history  # Opening/rendering the secondary view never invents history.
+
+
+def test_gui_keeps_discovered_identity_through_preflight_and_resume(window, qt):
+    from liltide.audio import InputIdentity
+    win, _, _ = window
+    discover(win, qt)
+    expected = InputIdentity('system-id', 'synthetic-discovery-uid')
+    bound, opened = [], []
+    class IdentityBackend:
+        def bind(self, device, source):
+            assert device == expected
+            bound.append(device)
+            return device
+    def make_source(device, source, rate):
+        assert device == expected
+        opened.append(device)
+        return Source()
+    def create(device, source, config, **kwargs):
+        return SessionWorker(device, source, config, backend_factory=IdentityBackend,
+                             source_factory=make_source, provider_factory=Provider, **kwargs)
+    win.worker_factory = create
+    win.available_devices = [Device('system-id', 'Synthetic virtual input', 2, 'system', expected.uid)]
+    win.populate_devices()
+    win.device.setCurrentIndex(0)
+    win.confirm.setChecked(True)
+    win.start_session()
+    until(qt, lambda: win.state_label.text() == 'State: Running')
+    win.pause_session()
+    until(qt, lambda: win.worker and win.worker.state == 'Paused')
+    win.pause_session()
+    until(qt, lambda: len(opened) == 2)
+    assert bound == [expected]
+    assert opened == [expected, expected]

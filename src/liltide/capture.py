@@ -8,7 +8,7 @@ from queue import Empty, Full
 import signal
 import time
 
-from liltide.audio import AudioError, SoundCardBackend, backend_hint
+from liltide.audio import AudioError, InputIdentity, SoundCardBackend, backend_hint
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,10 @@ def _worker(device_id, source, sample_rate, updates, errors, stop, raw=False):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         backend = SoundCardBackend()
-        mic = backend.select(device_id, source)
+        try:
+            mic = backend.select(device_id, source)
+        except AudioError as exc:
+            raise AudioError(f'Capture child device selection failed: {exc}') from exc
         frames = sample_rate // 10
         # Read in 100 ms chunks, but let the backend choose a valid native buffer.
         # CoreAudio endpoints may reject a 100 ms hardware block size outright.
@@ -69,8 +72,13 @@ def _worker(device_id, source, sample_rate, updates, errors, stop, raw=False):
         _offer(errors, message)
 
 
-def capture_stream(device_id: str, source: str, sample_rate: int, duration: float | None = None, *, raw=False):
+def capture_stream(device_id: str | InputIdentity, source: str, sample_rate: int, duration: float | None = None, *, raw=False):
     """Yield levels or raw blocks; bound waits and terminate stuck native readers."""
+    if platform.system() == "Darwin" and not isinstance(device_id, InputIdentity):
+        try:
+            device_id = SoundCardBackend().bind(device_id, source)
+        except AudioError as exc:
+            raise AudioError(f'Parent device validation failed: {exc}') from exc
     ctx = mp.get_context("spawn")
     updates, errors, stop = ctx.Queue(maxsize=10 if raw else 1), ctx.Queue(maxsize=1), ctx.Event()
     worker = ctx.Process(target=_worker, args=(device_id, source, sample_rate, updates, errors, stop, raw), daemon=True)
@@ -120,5 +128,5 @@ def capture_stream(device_id: str, source: str, sample_rate: int, duration: floa
             queue.cancel_join_thread()
 
 
-def capture_levels(device_id: str, source: str, sample_rate: int, duration: float | None = None):
+def capture_levels(device_id: str | InputIdentity, source: str, sample_rate: int, duration: float | None = None):
     yield from capture_stream(device_id, source, sample_rate, duration)

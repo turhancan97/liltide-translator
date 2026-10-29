@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from liltide.audio import AudioError
 from liltide.formatting import timestamp
+from liltide.text_safety import safe_text
+
+_JSON_LINE_ESCAPES = {code: f'\\u{code:04x}' for code in (*range(127, 160), 0x2028, 0x2029)}
 
 
 class TranscriptExports:
@@ -88,26 +91,28 @@ class TranscriptExports:
             "provisional_to_final_ms": event.provisional_to_final_ms,
             "estimated_final_delay_ms": event.estimated_final_delay_ms,
         }
-        english = event.english if event.english is not None else "[translation unavailable]"
+        english = safe_text(event.english) if event.english is not None else "[translation unavailable]"
         timing = ""
         if event.arrival_ms is not None:
             estimate = f"{event.estimated_final_delay_ms:+d} ms" if event.estimated_final_delay_ms is not None else "unavailable"
-            timing = f"Arrival: {timestamp(event.arrival_ms)} ({event.timing_source}); estimated final delay: {estimate}\n"
+            timing = f"Arrival: {timestamp(event.arrival_ms)} ({safe_text(str(event.timing_source))}); estimated final delay: {estimate}\n"
         text = (f"[{timestamp(event.start_ms)} --> {timestamp(event.end_ms)}] [final]\n{timing}"
-                f"PL: {event.polish}\nEN: {english}\n\n")
+                f"PL: {safe_text(event.polish)}\nEN: {english}\n\n")
         self._write(record, text)
 
     def gap(self, event):
         record = {"type": "gap", "session_id": self.session_id, "start_ms": event.start_ms,
                   "end_ms": event.end_ms, "reason": event.reason}
         text = (f"[{timestamp(event.start_ms)} --> {timestamp(event.end_ms)}] [gap]\n"
-                f"Reason: {event.reason} (audio may be missing or unfinalized)\n\n")
+                f"Reason: {safe_text(event.reason)} (audio may be missing or unfinalized)\n\n")
         self._write(record, text)
 
     def _write(self, record, text):
         for kind, _, file in self.files:
             if kind == "jsonl":
-                payload = json.dumps(record, ensure_ascii=False) + "\n"
+                # JSON already escapes C0; also escape C1/separators without
+                # changing decoded data or ordinary Polish Unicode text.
+                payload = json.dumps(record, ensure_ascii=False).translate(_JSON_LINE_ESCAPES) + "\n"
             else:
                 payload = text
             try:

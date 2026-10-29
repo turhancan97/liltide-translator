@@ -6,6 +6,7 @@ import sys
 from rich.live import Live
 from rich.text import Text
 from liltide.formatting import timestamp
+from liltide.text_safety import safe_text
 
 
 class PauseControl:
@@ -56,10 +57,10 @@ class CaptionRenderer:
         label = "final" if event.final else "provisional"
         text = f"[{timestamp(event.start_ms)}] [{label}]\n"
         if self.view == "bilingual":
-            text += f"PL: {event.polish}\n"
-        text += f"EN: {event.english if event.english is not None else '[translation unavailable]'}"
+            text += f"PL: {safe_text(event.polish)}\n"
+        text += f"EN: {safe_text(event.english) if event.english is not None else '[translation unavailable]'}"
         if self.show_timing and event.arrival_ms is not None:
-            text += f"\nArrived {timestamp(event.arrival_ms)} ({event.timing_source})"
+            text += f"\nArrived {timestamp(event.arrival_ms)} ({safe_text(str(event.timing_source))})"
             if event.final and event.estimated_final_delay_ms is not None:
                 text += f" | estimated final delay {event.estimated_final_delay_ms:+d} ms"
         if event.final:
@@ -72,7 +73,7 @@ class CaptionRenderer:
     def status(self, message):
         if self.live:
             self.live.update(Text(""))
-        self.console.print(Text(message))
+        self.console.print(Text(safe_text(message)))
 
     def timing_summary(self, summary):
         self.status(f"Timing: {summary['final_captions']} final captions received; {summary['translated_final_captions']} with English; {summary['provider_callback_captions']} SDK callback-timed; {summary['handler_only_captions']} handler-only.")

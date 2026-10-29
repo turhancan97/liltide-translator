@@ -98,7 +98,9 @@ def test_cli_header_records_selected_settings_but_no_identifiers(tmp_path, monke
     monkeypatch.setenv('AZURE_SPEECH_REGION', 'westeurope')
     monkeypatch.setattr(provider, 'AzureProvider', lambda config: FakeProvider())
     monkeypatch.setattr(sources, 'LiveSource', lambda *args: FakeSource())
-    monkeypatch.setattr(cli, 'SoundCardBackend', lambda: type('Backend', (), {'select': lambda *args: None})())
+    from liltide.audio import InputIdentity
+    monkeypatch.setattr(cli, 'SoundCardBackend', lambda: type('Backend', (), {
+        'bind': lambda self, device, source: InputIdentity(device, 'private-persistent-identity')})())
     path = tmp_path / 'session.jsonl'
     args = ['run', '--source', source, '--confirm-f0', '--export-jsonl', str(path)]
     if source == 'file':
@@ -121,7 +123,8 @@ def test_cli_header_records_selected_settings_but_no_identifiers(tmp_path, monke
     assert header['type'] == 'session' and header['input_type'] == source
     assert header['segmentation_silence_ms'] == silence_ms
     assert header['app_version'] == __version__
-    for forbidden in (secret, 'private-recording-name', 'private-device-identifier', 'westeurope', str(tmp_path)):
+    for forbidden in (secret, 'private-recording-name', 'private-device-identifier',
+                      'private-persistent-identity', 'westeurope', str(tmp_path)):
         assert forbidden not in data
 
 

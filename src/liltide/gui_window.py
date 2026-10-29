@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout, 
                               QFileDialog, QLineEdit, QMainWindow, QPlainTextEdit,
                               QPushButton, QVBoxLayout, QWidget, QGroupBox, QScrollArea, QSplitter)
 
-from liltide.audio import AudioError, SoundCardBackend
+from liltide.audio import AudioError, InputIdentity, SoundCardBackend
 from liltide.formatting import timestamp
 from liltide.exports import TranscriptExports
 from liltide.metadata import RunMetadata
@@ -102,7 +102,10 @@ class SessionWorker(QThread):
                 return
             metadata = RunMetadata(self.source, self.config.segmentation_silence_ms)
             with TranscriptExports(self.export_text, self.export_jsonl, metadata=metadata) as exports:
-                self.backend_factory().select(self.device, self.source)
+                try:
+                    self.device = self.backend_factory().bind(self.device, self.source)
+                except AudioError as exc:
+                    raise AudioError(f'Parent device validation failed: {exc}') from exc
                 session = TranslationSession(
                     lambda: self.source_factory(self.device, self.source, 48000),
                     lambda: self.provider_factory(self.config), self.caption, self.set_status, self.control,
@@ -195,6 +198,7 @@ class MainWindow(QMainWindow):
         audio.addWidget(source_label)
         audio.addWidget(self.source)
         self.device = Dropdown()
+        self.device.setPlaceholderText('Select an input…')
         self.device.setAccessibleName('Capture device')
         self.device.setMinimumWidth(0)
         self.device.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -414,15 +418,25 @@ class MainWindow(QMainWindow):
         self.discovery.start()
 
     def populate_devices(self):
-        old = self.device.currentData()
+        role = Qt.ItemDataRole.UserRole + 1
+        old = self.device.currentData(role)
         self.device.clear()
         source = self.source.currentData()
+        matches = []
         for device in self.available_devices:
             if device.kind in ('routed input', source):
                 self.device.addItem(f'{device.name} ({device.channels} channels)', device.id)
-        index = self.device.findData(old)
-        if index >= 0:
-            self.device.setCurrentIndex(index)
+                selection = device.selection
+                self.device.setItemData(self.device.count() - 1, selection, role)
+                same = (old.uid == selection.uid if isinstance(old, InputIdentity) and
+                        isinstance(selection, InputIdentity) else old == selection)
+                if old is not None and same:
+                    matches.append(self.device.count() - 1)
+        index = matches[0] if len(matches) == 1 else -1
+        self.device.setCurrentIndex(index)
+        if old is not None and index < 0:
+            self.status.setText('Selected input is no longer available or is ambiguous for this source. Select a capture device explicitly before Start.')
+        return old is not None and index < 0
 
     def start_session(self):
         if self.worker or self.discovery or self.closing:
@@ -439,7 +453,9 @@ class MainWindow(QMainWindow):
                     if not value:
                         raise AudioError(f'Choose a {kind} export filename or turn off that export.')
                     paths[f'export_{kind}'] = value
-            worker = self.worker_factory(device, self.source.currentData(), config, **paths)
+            selected = next((item for item in self.available_devices if item.id == device), None)
+            worker = self.worker_factory(selected.selection if selected else device,
+                                         self.source.currentData(), config, **paths)
         except AudioError as exc:
             self.state_label.setText('State: Error')
             self.status.setText('Error: ' + str(exc).replace('then pass --confirm-f0', 'then check the F0 confirmation'))
@@ -501,8 +517,9 @@ class MainWindow(QMainWindow):
             discovery, self.discovery = self.discovery, None
             discovery.wait()
             self.available_devices = discovery.devices
-            self.populate_devices()
-            self.status.setText(discovery.error or f'{len(self.available_devices)} input(s) found. Select a device before starting.')
+            selection_lost = self.populate_devices()
+            if discovery.error or not selection_lost:
+                self.status.setText(discovery.error or f'{len(self.available_devices)} input(s) found. Select a device before starting.')
             self.state_label.setText('State: Error' if discovery.error else 'State: Ready')
             self.refresh.setEnabled(True)
             self.start.setEnabled(True)
