@@ -6,6 +6,8 @@
   <img alt="Liltide — live captions across languages. Polish to English, CLI and desktop." src="assets/brand/liltide-banner.svg" width="1100">
 </picture>
 
+[![Checks](https://github.com/turhancan97/liltide-translator/actions/workflows/checks.yml/badge.svg?branch=main&event=push)](https://github.com/turhancan97/liltide-translator/actions/workflows/checks.yml)
+
 **Live captions across languages.**
 
 Liltide is an open-source Python tool for following computer audio with a live Polish transcript and English translation. It targets Windows, macOS, and Linux, starting with a terminal interface and later a Python GUI.
