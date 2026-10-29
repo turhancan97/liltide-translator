@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="96" viewBox="0 0 120 96" role="img" aria-labelledby="title desc">
+  <title id="title">Liltide symbol</title>
+  <desc id="desc">A continuous speech waveform flowing into a smooth wave.</desc>
+  <path d="M 12 48 H 23 L 30 31 L 39 68 L 49 20 L 59 59 L 67 40 C 73 28 80 30 85 43 C 90 57 99 57 108 45" fill="none" stroke="#2DD4BF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

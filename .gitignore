@@ -1,0 +1,36 @@
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+credentials/
+secrets/
+*.pem
+*.key
+
+# Private captures, transcripts, exports, and diagnostics
+recordings/
+transcripts/
+exports/
+private/
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.mp4
+*.jsonl
+*.log
+
+# Python environments and generated artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+.DS_Store
