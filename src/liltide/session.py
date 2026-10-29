@@ -15,13 +15,14 @@ from liltide.timing import timing_summary
 class TranslationSession:
     def __init__(self, source_factory, provider_factory, on_caption, on_status,
                  control=lambda: None, *, file_input=False, duration=None, on_finalized=None, on_gap=None,
-                 should_stop=lambda: False):
+                 should_stop=lambda: False, on_state=lambda state: None):
         self.source_factory = source_factory
         self.provider_factory = provider_factory
         self.on_caption = on_caption
         self.on_status = on_status
         self.control = control
         self.should_stop = should_stop
+        self.on_state = on_state
         self.file_input = file_input
         self.duration = duration
         self.on_finalized = on_finalized
@@ -105,6 +106,7 @@ class TranslationSession:
     def _activate(self):
         if self.should_stop():
             raise KeyboardInterrupt
+        self.on_state("Connecting")
         if self.source is None:
             self.source = self.source_factory()
         self.encoder = PCMEncoder(self.source.rate)
@@ -124,6 +126,7 @@ class TranslationSession:
         self.base_ms = max(self._elapsed_ms(), self.last_final_end_ms)
         self.source.resume()
         self._close_gap(self.base_ms)
+        self.on_state("Running")
         self.on_status("Running: selected audio is sent to Azure; no raw-audio recording. Press p to pause/resume in an interactive terminal; Ctrl+C stops.")
 
     def _deactivate(self, *, graceful, flush=False):
@@ -154,6 +157,7 @@ class TranslationSession:
         while error.retryable and self.retries < len(delays):
             delay = delays[self.retries]
             self.on_status(f"{error} Reconnecting {self.retries + 1}/3 in {delay} seconds. Capture stopped; Ctrl+C cancels.")
+            self.on_state("Reconnecting")
             deadline = time.monotonic() + delay
             while time.monotonic() < deadline:
                 if self.should_stop():
@@ -204,8 +208,10 @@ class TranslationSession:
                             self._activate()
                         else:
                             paused = True
+                            self.on_state("Pausing")
                             self._deactivate(graceful=True)
                             self.on_status("Paused: capture/transmission stopped; unfinished provisional text and resampler tail discarded. Press p to resume.")
+                            self.on_state("Paused")
                     if paused:
                         time.sleep(.02)
                         continue
@@ -234,6 +240,7 @@ class TranslationSession:
                         if not error.retryable:
                             raise
                         self.on_status("Paused after provider interruption. Press p to resume with a fresh connection.")
+                        self.on_state("Paused")
                     elif not self._recover(error):
                         break
         except KeyboardInterrupt:
@@ -243,6 +250,7 @@ class TranslationSession:
             self.on_status("Session failed; previously finalized captions remain visible. Audio after failure is not buffered for replay.")
             raise
         finally:
+            self.on_state("Stopping")
             try:
                 try:
                     self._deactivate(graceful=not failed, flush=not failed)
@@ -257,3 +265,4 @@ class TranslationSession:
                         self.source.close()
                         self.source = None
         self.on_status("Stopped. Capture and cloud resources released.")
+        self.on_state("Stopped")

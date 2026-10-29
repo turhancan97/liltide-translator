@@ -42,9 +42,11 @@ class Source:
     rate = 16000
     def __init__(self, *args):
         self.closed = False
+        self.reads = 0
     def resume(self):
         pass
     def read(self):
+        self.reads += 1
         return None
     def close(self):
         self.closed = True
@@ -54,9 +56,11 @@ class Provider:
     def __init__(self, config):
         self.sent = False
         self.aborted = False
+        self.polls = 0
     def start(self):
         pass
     def poll(self):
+        self.polls += 1
         if not self.sent:
             self.sent = True
             return [Caption('0', 0, 100, '<b>Zażółć</b>', 'Hello', False),
@@ -192,7 +196,8 @@ def test_stop_during_recovery_wait_does_not_reconnect(qt):
             raise ProviderError('Synthetic connection failure', reason='connection_failure', retryable=True)
     worker = worker_factory(sources, providers, OfflineProvider)('system-id', 'system', CloudConfig('fake', 'westeurope'))
     worker.start()
-    until(qt, lambda: 'Reconnecting' in worker.status)
+    until(qt, lambda: worker.state == 'Reconnecting')
+    assert 'Reconnecting' in worker.status and not worker.request_pause()
     worker.stop_requested.set()
     until(qt, worker.isFinished)
     worker.wait()
@@ -237,3 +242,118 @@ def test_stop_while_provider_starts_waits_for_cleanup(qt):
     until(qt, worker.isFinished)
     worker.wait()
     assert sources[0].closed and providers[0].aborted and not worker.error
+
+
+def start_running(win, qt):
+    discover(win, qt)
+    win.confirm.setChecked(True)
+    win.start_session()
+    until(qt, lambda: win.state_label.text() == 'State: Running')
+
+
+def test_pause_resume_fresh_context_preserves_captions(window, qt):
+    win, sources, providers = window
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć gęślą jaźń' in win.transcript.toPlainText())
+    worker = win.worker
+    win.pause_session()
+    assert not win.pause.isEnabled()
+    assert not worker.request_pause()  # Repeated clicks cannot queue extra toggles.
+    until(qt, lambda: win.state_label.text() == 'State: Paused')
+    assert sources[0].closed and providers[0].aborted
+    assert 'Koniec' in win.transcript.toPlainText()  # Pause drains final results.
+    assert win.provisional.text() == 'Provisional: —'
+    assert win.pause.text() == 'Resume' and win.pause.isEnabled()
+    assert 'Press p' not in win.status.text()
+    activity = (sources[0].reads, providers[0].polls)
+    idle = Event()
+    QTimer.singleShot(75, idle.set)
+    until(qt, idle.is_set)
+    assert (sources[0].reads, providers[0].polls) == activity
+    assert len(sources) == len(providers) == 1
+    win.pause_session()
+    until(qt, lambda: len(sources) == 2 and win.state_label.text() == 'State: Running')
+    until(qt, lambda: win.transcript.toPlainText().count('Zażółć gęślą jaźń') == 2)
+    assert win.worker is worker and len(providers) == 2
+    assert win.pause.text() == 'Pause' and win.transcript.toPlainText().count('— New session') == 1
+    assert len({event.segment_id for event in win.history if event is not None}) == 3
+
+
+@pytest.mark.parametrize('close', [False, True])
+def test_stop_or_close_while_paused_never_reopens_capture(window, qt, close):
+    win, sources, providers = window
+    start_running(win, qt)
+    win.pause_session()
+    until(qt, lambda: win.state_label.text() == 'State: Paused')
+    if close:
+        win.close()
+    else:
+        win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert len(sources) == len(providers) == 1
+    assert sources[0].closed and providers[0].aborted
+    assert win.state_label.text() == 'State: Stopped' and not win.pause.isEnabled()
+
+
+def test_view_switch_reformats_history_and_provisional_without_restart(window, qt):
+    win, sources, providers = window
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć gęślą jaźń' in win.transcript.toPlainText())
+    worker = win.worker
+    worker.caption(Caption('provisional', 0, 1, '<b>Polski</b>', '<i>English</i>', False))
+    win.view.setCurrentIndex(1)
+    assert 'PL:' not in win.transcript.toPlainText() and 'Zażółć' not in win.transcript.toPlainText()
+    assert 'EN: Hello' in win.transcript.toPlainText()
+    assert win.provisional.text() == 'Provisional · EN: <i>English</i>'
+    assert win.worker is worker and len(sources) == len(providers) == 1
+    win.view.setCurrentIndex(0)
+    assert 'PL: Zażółć' in win.transcript.toPlainText()
+    assert '<b>Polski</b>' in win.provisional.text()
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    history = list(win.history)
+    win.view.setCurrentIndex(1)
+    assert 'PL:' not in win.transcript.toPlainText() and 'EN: End' in win.transcript.toPlainText()
+    win.view.setCurrentIndex(0)
+    assert 'Koniec' in win.transcript.toPlainText() and win.history == history
+
+
+def test_english_view_preserves_unavailable_translation_and_future_sessions(window, qt):
+    win, _, _ = window
+    win.view.setCurrentIndex(1)
+    win.history.extend([None, Caption('0', 0, 10, 'Źródło', None, True)])
+    win.change_view()
+    assert '[translation unavailable]' in win.transcript.toPlainText()
+    assert 'Źródło' not in win.transcript.toPlainText()
+    start_running(win, qt)
+    until(qt, lambda: 'EN: Hello' in win.transcript.toPlainText())
+    assert 'PL:' not in win.transcript.toPlainText()
+    win.view.setCurrentIndex(0)
+    assert 'Źródło' in win.transcript.toPlainText() and 'Zażółć' in win.transcript.toPlainText()
+
+
+def test_fatal_resume_state_preserves_history(qt, monkeypatch):
+    monkeypatch.setenv('AZURE_SPEECH_KEY', 'synthetic-not-a-real-key')
+    monkeypatch.setenv('AZURE_SPEECH_REGION', 'westeurope')
+    sources, providers = [], []
+    class FailingResume(Provider):
+        def start(self):
+            if len(providers) > 1:
+                raise ProviderError('Synthetic quota failure', reason='rate_or_quota_limit')
+    win = MainWindow(discovery_factory=lambda: DiscoveryWorker(Backend),
+                     worker_factory=worker_factory(sources, providers, FailingResume))
+    try:
+        start_running(win, qt)
+        win.pause_session()
+        until(qt, lambda: win.state_label.text() == 'State: Paused')
+        win.pause_session()
+        until(qt, lambda: win.worker is None)
+        assert win.state_label.text() == 'State: Error' and 'quota' in win.status.text()
+        assert win.start.isEnabled() and not win.pause.isEnabled()
+        assert all(source.closed for source in sources) and all(provider.aborted for provider in providers)
+        assert 'Koniec' in win.transcript.toPlainText()
+    finally:
+        if win.worker:
+            win.stop_session()
+            until(qt, lambda: win.worker is None)
+        win.close()

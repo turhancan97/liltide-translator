@@ -233,3 +233,13 @@ No agent live capture or Azure calls were run. Opening/refreshing alone is not p
 ### User GUI confirmation — 2026-10-29
 
 After receiving the GUI launch instructions, the user reported that it works well. This is user-reported confirmation on their macOS setup; individual capture/translation, Stop/close, playback, and duration results were not supplied. No independent agent live rerun followed. Deferred validation and other-platform evidence remain unchanged.
+
+## GUI stage two — 2026-10-29
+
+**189 offline tests passed**, including 16 optional offscreen GUI tests in the same macOS/Python/PySide6 environment. Wheel, dependency, local-link, and whitespace checks passed. Synthetic paused bilingual and English-only windows rendered and visually inspected at 860×640: Pause/Resume, view selector, explicit state/detail labels, and captions fit without clipping. No private transcript content was used.
+
+New/extended GUI checks verify pause final drain and resource release, no read/poll activity while paused, fresh contexts on resume with one retained session/history, disabled repeated transitions, Stop/close while paused without reopening resources, view switching before/during/after sessions without reconnect, source-text restoration, literal markup, unavailable English, fatal resume cleanup/error state, and reconnect pause guards. Existing CLI pause/recovery tests still pass with the optional structured lifecycle callback. No live Azure/capture call was run; earlier user GUI confirmation covers stage one, not these new controls. Long-session/accuracy/Windows/Linux checks remain deferred.
+
+### User stage-two confirmation — 2026-10-29
+
+After receiving the Pause/Resume, English-only view, and explicit-state update, the user reported it works well and authorized a push. Record stage-two GUI operation on macOS as user-confirmed; no individual checklist outcomes, measurements, or session duration were supplied. No independent agent live rerun followed; deferred release validation is unchanged.

@@ -95,7 +95,7 @@ Original project code, documentation, and brand assets are covered by the [MIT L
 
 ## Desktop GUI PoC
 
-Stage one provides source/device selection, Start/Stop, and provisional/final bilingual captions. Install the optional GUI dependency in your activated virtual environment:
+The GUI provides source/device selection, Start/Stop, Pause/Resume, bilingual or English-only captions, and explicit session states. Install the optional GUI dependency in your activated virtual environment:
 
 ```console
 python -m pip install -e ".[gui]"
@@ -104,4 +104,6 @@ liltide-gui
 
 Alternatively: `python -m liltide.gui`. Launch from the same terminal where you set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`; credentials are never entered or saved in the window. Refresh devices, choose your input, confirm that your resource is F0, then click Start translation. Opening the window or refreshing devices makes no cloud calls. See [GUI setup and limitations](docs/setup.md#desktop-gui-poc).
 
-This is an offline-tested desktop PoC; the user reports that it works well on their macOS setup. Detailed live checklist outcomes were not supplied. Pause/resume, export controls, theme override, and floating captions are later stages. Existing CLI features remain available.
+This is an offline-tested desktop PoC; the user reports that it works well on their macOS setup. Detailed live checklist outcomes were not supplied. Pause/resume and display switching are offline-tested and reported working by the user on macOS; individual checklist results and duration were not supplied. Export controls, theme override, and floating captions are later stages. Existing CLI features remain available.
+
+Use **Pause** to release capture/cloud processing while retaining finalized captions; wait for **Paused**, then **Resume** to start fresh context. Change **Polish + English / English only** at any time to reformat existing and incoming captions without restarting translation.

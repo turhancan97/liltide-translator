@@ -9,7 +9,7 @@ Capture CLI and translation PoC implemented; macOS lecture capture/playback is u
 | 2 — Translation PoC | Azure F0 continuous streaming, paced WAV input, bilingual/provisional captions, timestamps, English-only view, pause/resume, Ctrl+C | Live macOS PoC user-confirmed; reference accuracy review deferred |
 | 3 — Reliability and exports | Explicit text/JSONL export, bounded buffers/retries, gap notices, quota and credential handling | Automated fake-provider failure tests; 30-minute session validation deferred |
 | 4 — Cross-platform v1 | Setup corrections, compatibility matrix, release instructions | Windows/Linux tests deferred; real capture/provider evidence required before cross-platform release claims |
-| 5 — Python GUI (stage one implemented; offline-tested) | PySide6 device controls, transcript panels, system theme/manual override, floating captions | Reuses validated core; UI workflow and accessibility checks completed |
+| 5 — Python GUI (stages one/two implemented; offline-tested) | PySide6 device controls, transcript panels, system theme/manual override, floating captions | Reuses validated core; UI workflow and accessibility checks completed |
 
 ## v1 feature checklist
 
@@ -42,8 +42,8 @@ Offline inference, additional language pairs, SRT export, translated speech, spe
 ## GUI PoC stages
 
 - [x] Stage 1: optional PySide6 window, source/device selection, F0-gated Start/Stop, bilingual provisional/final captions; fake-provider/offscreen checks passed. The user reports that the GUI works well on macOS; detailed live checklist outcomes remain unrecorded.
-- [ ] Stage 2: pause/resume, English-only display, expanded session controls.
+- [x] Stage 2: pause/resume, English-only display (including existing history), and explicit session states; offline-tested and user-confirmed working on macOS; individual checklist results unspecified.
 - [ ] Stage 3: explicit export destinations and timing controls.
 - [ ] Stage 4: full brand styling, manual theme override, floating captions, keyboard/accessibility review.
 
-The user authorized stage one before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.
+The user authorized GUI stages one and two before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.

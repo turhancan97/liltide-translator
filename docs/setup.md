@@ -217,7 +217,7 @@ Metadata is an explicit allowlist: no credentials, environment values, Azure reg
 
 ## Desktop GUI PoC
 
-Stage one is implemented with optional PySide6; it does not replace the CLI. Installation and offscreen fake-provider tests passed locally on macOS arm64/Python 3.13.7 with PySide6 6.12.0. The user subsequently reported that the GUI works well on their macOS setup; individual live checklist results and duration were not supplied. Desktop accessibility and Windows/Linux remain unverified.
+Stages one and two are implemented with optional PySide6; it does not replace the CLI. Installation and offscreen fake-provider tests passed locally on macOS arm64/Python 3.13.7 with PySide6 6.12.0. The user subsequently reported that the GUI works well on their macOS setup; individual live checklist results and duration were not supplied. Desktop accessibility and Windows/Linux remain unverified.
 
 1. Activate your existing virtual environment and run `python -m pip install -e ".[gui]"`.
 2. Set the same local `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` environment variables used by the CLI. Launch from that terminal with `liltide-gui` or `python -m liltide.gui` so the process inherits them. The GUI does not load `.env` files automatically.
@@ -225,8 +225,18 @@ Stage one is implemented with optional PySide6; it does not replace the CLI. Ins
 4. Verify your Azure resource is F0, check the F0 confirmation box, then click **Start translation**. This sends selected audio to Azure. The checkbox is your assertion, not a billing-tier check. There is no paid fallback.
 5. Finalized Polish/English captions accumulate in the text area; provisional text is separate and labeled. **Stop** requests cleanup and drains remaining finalized captions. Closing an active window waits for cleanup too. Startup/drain/native shutdown can take several seconds; the UI does not force-terminate a session thread.
 
-Opening the window and refreshing devices do not record audio or contact Azure. No transcript/audio files or settings are saved by the GUI. Prior finalized text remains visible across starts until the window closes; there is no disk recovery. GUI controls currently use the service-default segmentation setting. Use the CLI for WAV input, pause/resume, explicit text/JSONL exports, segmentation tuning, English-only view, and timing summaries. System theme is inherited; manual theme override, brand polish, and floating captions are not implemented in this stage.
+Opening the window and refreshing devices do not record audio or contact Azure. No transcript/audio files or settings are saved by the GUI. Prior finalized text remains visible across starts until the window closes; there is no disk recovery. GUI controls currently use the service-default segmentation setting. Use the CLI for WAV input, explicit text/JSONL exports, segmentation tuning, and timing summaries. System theme is inherited; manual theme override, brand polish, and floating captions are not implemented in this stage.
 
 The GUI runs discovery and session coordination off the UI thread, reusing the existing capture and provider subprocesses. Stop also cancels reconnect waits. It coalesces provisional updates and bounds pending final-caption delivery to 256 events; overflow stops translation visibly rather than growing a hidden queue. Previously displayed captions remain. Final transcript history stays in memory and can grow with session length, as in the CLI; the deferred long-session memory check is still needed. Device discovery/native operations may delay closing until their own return/timeout.
 
 Offline GUI checks: `QT_QPA_PLATFORM=offscreen python -m pytest tests/test_gui.py -q` on macOS/Linux; in PowerShell set `$env:QT_QPA_PLATFORM="offscreen"` before running pytest. Without the GUI extra, GUI tests skip; CLI tests still run.
+
+### GUI pause/resume, display, and states
+
+- **Pause** is enabled only while Running. It requests a graceful final-result drain and releases live capture/provider resources. During **Pausing**, cleanup is still in progress; wait for **Paused** before assuming transmission has stopped. Unfinished provisional text and resampler tail are discarded. Finalized captions stay visible.
+- **Resume** is enabled only when Paused. It creates fresh capture/recognizer contexts and continues the same in-memory session history; speech during the pause is not replayed. The existing retry budget and F0-only policy are unchanged.
+- During Connecting, Pausing, Reconnecting, and Stopping, the pause toggle is disabled to prevent queued duplicate transitions. **Stop** works while paused or reconnecting; closing also waits for cleanup. Fatal resume errors show **Error** and retain finalized text.
+- **Polish + English / English only** changes existing finalized text and current/future provisional captions immediately, including after Stop or across runs in the same window. It does not reconnect or change the Polish source/English translation configuration. Missing English remains `[translation unavailable]`; switching back restores the retained Polish text. This view preference is not persisted to disk.
+- A separate, color-independent state label shows Ready, Discovering, Connecting, Running, Pausing, Paused, Reconnecting, Stopping, Stopped, or Error, with explanatory text below it. Native startup/drain timeouts can delay transitions; a requested pause is not yet a completed pause.
+
+Stage-two behavior is offline-tested with fake providers and offscreen widgets. After receiving the stage-two update, the user reported that it works well on macOS; individual pause/resume/view-switch checklist results and duration were not supplied. No agent live cloud run was performed for this addition.
