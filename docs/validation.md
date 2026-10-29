@@ -243,3 +243,11 @@ New/extended GUI checks verify pause final drain and resource release, no read/p
 ### User stage-two confirmation — 2026-10-29
 
 After receiving the Pause/Resume, English-only view, and explicit-state update, the user reported it works well and authorized a push. Record stage-two GUI operation on macOS as user-confirmed; no individual checklist outcomes, measurements, or session duration were supplied. No independent agent live rerun followed; deferred release validation is unchanged.
+
+## GUI stage three — 2026-10-29
+
+**203 offline tests passed**, including 30 optional offscreen GUI tests on the existing macOS/Python/PySide6 environment. Wheel build, dependency, local-link, and whitespace checks passed. Rendered a synthetic 900×800 window with export selectors, timing details, and last-session statistics; visually inspected readable controls and unclipped caption/summary areas. No private text was used.
+
+New GUI integration tests cover independent/both destinations, flushed records visible before Stop, one metadata header/session across pause/reconnect, gap persistence, bilingual output despite English-only view, controls locked during runs, existing/duplicate/missing-parent/blank destinations, header cleanup before source/provider construction, failed final writes preserving completed records, received-versus-persisted counts, timing re-rendering without restart, negative estimates, zero/unavailable samples, browse selection/cancel, and no files from unchecked paths/timing alone. Existing core exporter durability/recovery tests continue to pass. An initial shutdown crash after passing widget tests exposed a retaining browse lambda; switching to a bound slot removed the retained-window cycle and subsequent GUI/full-suite processes exited successfully.
+
+No agent live cloud/audio test was run. Stage-three live GUI exports/timing remain unverified, and earlier macOS user confirmations cover stages one/two. Long-session, reference accuracy, and Windows/Linux validation remain user-deferred. Styling/theme controls are not implemented here.

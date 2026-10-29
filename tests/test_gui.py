@@ -75,7 +75,7 @@ class Provider:
 
 
 def worker_factory(sources, providers, provider_class=Provider):
-    def create(device, source, config):
+    def create(device, source, config, **kwargs):
         def make_source(*args):
             item = Source(*args)
             sources.append(item)
@@ -85,7 +85,7 @@ def worker_factory(sources, providers, provider_class=Provider):
             providers.append(item)
             return item
         return SessionWorker(device, source, config, backend_factory=Backend,
-                             source_factory=make_source, provider_factory=make_provider)
+                             source_factory=make_source, provider_factory=make_provider, **kwargs)
     return create
 
 
@@ -357,3 +357,213 @@ def test_fatal_resume_state_preserves_history(qt, monkeypatch):
             win.stop_session()
             until(qt, lambda: win.worker is None)
         win.close()
+
+
+def enable_export(win, kind, path):
+    enabled, field, _ = win.export_controls[kind]
+    enabled.setChecked(True)
+    field.setText(str(path))
+
+
+@pytest.mark.parametrize('formats', [('text',), ('jsonl',), ('text', 'jsonl')])
+def test_gui_optional_exports_durable_bilingual_header_and_pause(window, qt, tmp_path, formats):
+    import json
+    win, sources, providers = window
+    win.view.setCurrentIndex(1)
+    for kind in formats:
+        enable_export(win, kind, tmp_path / f'session.{kind}')
+    start_running(win, qt)
+    until(qt, lambda: 'EN: Hello' in win.transcript.toPlainText())
+    for enabled, field, browse in win.export_controls.values():
+        assert not enabled.isEnabled() and not field.isEnabled() and not browse.isEnabled()
+    if 'jsonl' in formats:
+        rows = [json.loads(line) for line in (tmp_path / 'session.jsonl').read_text().splitlines()]
+        assert [row['type'] for row in rows] == ['session', 'segment']
+        assert rows[0]['input_type'] == 'system' and rows[0]['segmentation_mode'] == 'service_default'
+        assert rows[1]['source_text'] == 'Zażółć gęślą jaźń'
+    win.pause_session()
+    until(qt, lambda: win.state_label.text() == 'State: Paused')
+    win.pause_session()
+    until(qt, lambda: len(providers) == 2 and win.state_label.text() == 'State: Running')
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert set(path.name for path in tmp_path.iterdir()) == {f'session.{kind}' for kind in formats}
+    if 'text' in formats:
+        content = (tmp_path / 'session.text').read_text()
+        assert content.startswith('[session]') and 'PL: Zażółć' in content and 'EN: Hello' in content
+    if 'jsonl' in formats:
+        rows = [json.loads(line) for line in (tmp_path / 'session.jsonl').read_text().splitlines()]
+        assert sum(row['type'] == 'session' for row in rows) == 1
+        assert len({row['session_id'] for row in rows}) == 1
+        assert len({row['segment_id'] for row in rows if row['type'] == 'segment'}) == len(rows) - 1
+        assert 'synthetic-not-a-real-key' not in (tmp_path / 'session.jsonl').read_text()
+    assert all(source.closed for source in sources)
+    assert 'final captions received' in win.summary_label.text()
+
+
+@pytest.mark.parametrize('failure', ['existing', 'same', 'missing_parent', 'blank'])
+def test_gui_export_preflight_stops_before_capture(window, qt, tmp_path, failure):
+    win, sources, providers = window
+    path = tmp_path / 'session.jsonl'
+    if failure == 'existing':
+        path.write_text('keep existing content')
+    elif failure == 'missing_parent':
+        path = tmp_path / 'absent' / 'session.jsonl'
+    enable_export(win, 'jsonl', '' if failure == 'blank' else path)
+    if failure == 'same':
+        enable_export(win, 'text', path)
+    discover(win, qt)
+    win.confirm.setChecked(True)
+    win.start_session()
+    until(qt, lambda: win.worker is None)
+    assert win.state_label.text() == 'State: Error' and not sources and not providers
+    assert win.start.isEnabled()
+    if failure == 'existing':
+        assert path.read_text() == 'keep existing content'
+    else:
+        assert list(tmp_path.iterdir()) == []
+
+
+def test_gui_header_failure_prevents_capture_and_closes_destinations(window, qt, tmp_path, monkeypatch):
+    from liltide.exports import TranscriptExports
+    win, sources, providers = window
+    enable_export(win, 'jsonl', tmp_path / 'session.jsonl')
+    handles = []
+    def fail_header(sink, *args):
+        handles.extend(file for _, _, file in sink.files)
+        raise AudioError('Synthetic header write failure')
+    monkeypatch.setattr(TranscriptExports, '_write', fail_header)
+    discover(win, qt)
+    win.confirm.setChecked(True)
+    win.start_session()
+    until(qt, lambda: win.worker is None)
+    assert not sources and not providers and handles and all(file.closed for file in handles)
+    assert 'header write failure' in win.status.text()
+    assert '0 final captions received' in win.summary_label.text()
+
+
+def test_gui_export_error_retains_saved_data_and_reports_received_counts(window, qt, tmp_path, monkeypatch):
+    import json
+    from liltide.exports import TranscriptExports
+    win, sources, providers = window
+    path = tmp_path / 'session.jsonl'
+    enable_export(win, 'jsonl', path)
+    original = TranscriptExports.caption
+    def fail_second(sink, event):
+        if event.polish == 'Koniec':
+            raise AudioError('Synthetic export write failure')
+        original(sink, event)
+    monkeypatch.setattr(TranscriptExports, 'caption', fail_second)
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć' in win.transcript.toPlainText())
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert win.state_label.text() == 'State: Error' and 'export write failure' in win.status.text()
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [row['type'] for row in rows] == ['session', 'segment']
+    assert 'Zażółć' in win.transcript.toPlainText()
+    assert win.last_summary['final_captions'] == 2  # Received, not necessarily persisted/displayed.
+    assert 'do not guarantee successful persistence' in win.summary_label.text()
+    assert sources[0].closed and providers[0].aborted
+
+
+def test_gui_recovery_exports_gap_and_one_header(qt, tmp_path, monkeypatch):
+    import json
+    monkeypatch.setenv('AZURE_SPEECH_KEY', 'synthetic-not-a-real-key')
+    monkeypatch.setenv('AZURE_SPEECH_REGION', 'westeurope')
+    sources, providers = [], []
+    class FirstOffline(Provider):
+        def start(self):
+            if len(providers) == 1:
+                raise ProviderError('Synthetic offline', reason='connection_failure', retryable=True)
+    win = MainWindow(discovery_factory=lambda: DiscoveryWorker(Backend),
+                     worker_factory=worker_factory(sources, providers, FirstOffline))
+    path = tmp_path / 'session.jsonl'
+    enable_export(win, 'jsonl', path)
+    try:
+        discover(win, qt)
+        win.confirm.setChecked(True)
+        win.start_session()
+        until(qt, lambda: 'Zażółć' in win.transcript.toPlainText())
+        win.stop_session()
+        until(qt, lambda: win.worker is None)
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        types = [row['type'] for row in rows]
+        assert types[0] == 'session' and types.count('session') == 1 and 'gap' in types and 'segment' in types
+        assert len({row['session_id'] for row in rows}) == 1
+        assert all(source.closed for source in sources)
+    finally:
+        if win.worker:
+            win.stop_session()
+            until(qt, lambda: win.worker is None)
+        win.close()
+
+
+def test_timing_toggle_reformats_history_and_summary_without_restart(window, qt):
+    from dataclasses import replace
+    from liltide.timing import timing_summary
+    win, _, providers = window
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć' in win.transcript.toPlainText())
+    timed = replace(win.history[-1], arrival_ms=1000, handled_ms=1040,
+        timing_source='provider_callback', dispatch_delay_ms=40,
+        first_provisional_arrival_ms=500, provisional_to_final_ms=500, estimated_final_delay_ms=-10)
+    win.history[-1] = timed
+    win.worker.caption(replace(timed, final=False))
+    win.show_timing.setChecked(True)
+    assert 'Arrival: 00:00:01.000 (provider_callback)' in win.transcript.toPlainText()
+    assert 'estimated final delay: -10 ms (not benchmark latency)' in win.transcript.toPlainText()
+    assert 'Arrival: 00:00:01.000' in win.provisional.text()
+    assert len(providers) == 1
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert win.last_summary['final_captions'] == 2 and win.last_summary['handler_only_captions'] == 2
+    win.last_summary = timing_summary([timed])
+    win.render_summary()
+    text = win.summary_label.text()
+    assert 'median=-10 ms, p95=-10 ms, max=-10 ms' in text
+    assert '1 negative estimates retained' in text and 'not benchmark latency' in text
+    win.view.setCurrentIndex(1)
+    assert 'PL:' not in win.transcript.toPlainText() and 'Arrival:' in win.transcript.toPlainText()
+    win.show_timing.setChecked(False)
+    assert 'Arrival:' not in win.transcript.toPlainText() and 'median=' not in win.summary_label.text()
+
+
+def test_summary_zero_samples_after_early_failure(window, qt):
+    from liltide.timing import timing_summary
+    win, _, _ = window
+    win.last_summary = timing_summary([])
+    win.show_timing.setChecked(True)
+    assert '0 final captions received' in win.summary_label.text()
+    assert win.summary_label.text().count('no samples.') == 3
+
+
+def test_export_browse_cancel_and_selected_filename(window, qt, tmp_path, monkeypatch):
+    from liltide.gui_window import QFileDialog
+    win, _, _ = window
+    enabled, field, browse = win.export_controls['text']
+    assert not enabled.isChecked() and not field.isEnabled() and not browse.isEnabled()
+    enabled.setChecked(True)
+    field.setText(str(tmp_path / 'original.txt'))
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a, **kw: ('', ''))
+    browse.click()
+    assert field.text().endswith('original.txt')
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a, **kw: (str(tmp_path / 'selected.txt'), ''))
+    browse.click()
+    assert field.text().endswith('selected.txt') and list(tmp_path.iterdir()) == []
+
+
+def test_unchecked_export_paths_and_timing_do_not_create_files(window, qt, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    win, _, _ = window
+    for kind, (enabled, field, _) in win.export_controls.items():
+        field.setText(str(tmp_path / f'not-enabled.{kind}'))
+        assert not enabled.isChecked()
+    win.show_timing.setChecked(True)
+    start_running(win, qt)
+    until(qt, lambda: 'Zażółć' in win.transcript.toPlainText())
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert list(tmp_path.iterdir()) == []
+    assert '2 final captions received' in win.summary_label.text()
+    assert win.summary_label.text().count('no samples.') == 3
