@@ -47,6 +47,17 @@ Initially deferred on 2026-10-29 after the [security review](security-review.md)
 
 Detailed original findings and repair evidence remain in the review. Offline/local verification does not establish comprehensive security, native-library coverage, or Windows/Linux release readiness.
 
+## Future work: language selection
+
+Recorded at the user's request on 2026-10-30; implementation is deferred, with no delivery date.
+
+- [ ] Add manually selected spoken and translation languages to the CLI and GUI, using Azure-supported locales/language codes verified for the existing provider and F0 policy.
+- [ ] Keep one source language and one target language per session, defaulting to Polish → English; lock choices while a session is active.
+- [ ] Generalize caption fields and all main/floating-window labels, text exports and JSONL metadata to reflect the selected pair, preserving compatibility with existing exports.
+- [ ] Remember language preferences alongside the existing allowlisted macOS settings and test configuration, Unicode rendering, unsupported choices and exports with fake providers. Record live validation separately for each tested pair.
+
+Automatic language detection, switching languages mid-session and simultaneous target languages remain separate later considerations. This roadmap entry does not authorize application implementation or change the Azure F0-only requirement.
+
 ## Deferred
 
 Offline inference, additional language pairs, SRT export, translated speech, speaker identification, meeting integrations, native rewrites, public installers, and signing/notarization. A local macOS Python app bundle is now separately authorized; see below. No schedule or delivery date is promised. A roadmap entry does not authorize implementation of that milestone; use the user's current task scope.
