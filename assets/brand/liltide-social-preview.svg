@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">Liltide — live captions across languages</title>
+  <desc id="desc">Dark social preview with the original blue and red waveform, Liltide wordmark, Polish-to-English positioning, and paired caption illustration.</desc>
+  <rect width="1280" height="640" fill="#17212b"/>
+  <g font-family="system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" fill="#d1d3d4">
+    <circle cx="91" cy="87" r="6" fill="#3a7eab"/>
+    <text x="113" y="95" font-size="22" font-weight="600" letter-spacing="2.6">POLISH → ENGLISH</text>
+    <text x="360" y="270" font-size="128" font-weight="650" letter-spacing="-4">Liltide</text>
+    <text x="84" y="367" font-size="42" font-weight="450" letter-spacing="-0.5">Live captions across languages.</text>
+    <text x="87" y="423" font-size="26">Polish transcripts. English translations.</text>
+    <text x="87" y="551" font-size="19" font-weight="600" letter-spacing="2.1">OPEN SOURCE</text>
+    <circle cx="269" cy="544" r="3"/>
+    <text x="292" y="551" font-size="19" font-weight="500" letter-spacing="1.8">PYTHON CLI + DESKTOP</text>
+  </g>
+  <g transform="translate(62 136) scale(2.2)" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 12 48 H 23 L 30 31 L 39 68 L 49 20 L 59 59 L 67 40" stroke="#3a7eab"/>
+    <path d="M 67 40 C 73 28 80 30 85 43 C 90 57 99 57 108 45" stroke="#cf4832"/>
+  </g>
+  <g transform="translate(862 210)" fill="none" stroke-linecap="round">
+    <rect width="330" height="104" rx="20" stroke="#3a7eab" stroke-width="2"/>
+    <rect y="126" width="330" height="104" rx="20" stroke="#cf4832" stroke-width="2"/>
+    <path d="M 24 52 H 34 L 41 38 L 48 65 L 55 32 L 63 58 L 71 45 H 82" stroke="#3a7eab" stroke-width="4.5" stroke-linejoin="round"/>
+    <path d="M 24 178 H 34 C 43 158 50 158 58 178 S 73 198 82 178" stroke="#cf4832" stroke-width="4.5"/>
+    <path d="M 110 42 H 277 M 110 62 H 232 M 110 168 H 250 M 110 188 H 284" stroke="#d1d3d4" stroke-width="6"/>
+  </g>
+  <path d="M 0 636 H 548" stroke="#3a7eab" stroke-width="8"/>
+  <path d="M 548 636 H 784" stroke="#cf4832" stroke-width="8"/>
+  <path d="M 784 636 H 1280" stroke="#d1d3d4" stroke-width="8"/>
+</svg>
