@@ -59,7 +59,8 @@ Offline inference, additional language pairs, SRT export, translated speech, spe
 - [x] Stage 4: approved brand styling, System/Light/Dark themes, grouped/resizable layout, caption sizing, and keyboard controls; offline-tested/visually inspected.
 - [x] Floating caption view: optional shared-session window, latest final/provisional text, synchronized language/font/theme; offline-tested, with live caption/language/font checks on macOS. Actual OS stacking remains open.
 - [x] Short native macOS synthetic desktop check: manual Light/Dark, 26 pt/English-only synchronization, basic native keyboard controls, resource cleanup, and floating exposure above an active normal Chrome window. See [evidence](validation.md#native-macos-desktop-check--2026-10-29).
-- [ ] Resolve observed fullscreen limitation: Chrome native fullscreen makes the floating window unexposed; exiting restores it. No fix implemented.
+- [x] Implement macOS fullscreen/Spaces window policy: exact AppKit settings applied/read back before and after reopening; fallback warning on failure; offline tests pass.
+- [ ] Repeat the original Chrome fullscreen exposure comparison after the fix. Native desktop automation was unavailable during implementation; policy readback passed but visibility is not yet verified.
 - [ ] Arbitrary desktop Spaces, other apps/displays, complete keyboard/screen-reader accessibility, and actual OS theme-change notifications; remain unverified.
 
 The user authorized GUI stages one through four before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.

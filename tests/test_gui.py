@@ -844,6 +844,42 @@ def test_floating_unicode_missing_translation_and_bounded_display(window, qt):
     assert not win.history  # Opening/rendering the secondary view never invents history.
 
 
+@pytest.mark.parametrize('outcome', [True, False, 'error'])
+def test_macos_fullscreen_policy_on_show_and_reopen(window, qt, monkeypatch, outcome):
+    from liltide import gui_floating, macos_window
+    win, sources, providers = window
+    calls = []
+    def configure(handle):
+        assert isinstance(handle, int) and handle
+        calls.append(handle)
+        if outcome == 'error':
+            raise RuntimeError('private native pointer detail')
+        return outcome
+    monkeypatch.setattr(gui_floating.sys, 'platform', 'darwin')
+    monkeypatch.setattr(gui_floating.QApplication, 'platformName', lambda:'cocoa')
+    monkeypatch.setattr(macos_window, 'enable_fullscreen_panel', configure)
+    win.floating.show()
+    qt.processEvents()
+    assert win.floating.fullscreen_ready is (outcome is True)
+    assert ('could not be enabled' in win.floating.footer.text()) is (outcome is not True)
+    assert 'private' not in win.floating.footer.text()
+    win.floating.close()
+    win.floating.show()
+    qt.processEvents()
+    assert len(calls) == 2
+    assert not sources and not providers
+
+
+def test_offscreen_floating_never_loads_native_policy(window, qt, monkeypatch):
+    from liltide import macos_window
+    win, _, _ = window
+    monkeypatch.setattr(macos_window, 'enable_fullscreen_panel',
+                        lambda *args:pytest.fail('Offscreen must not call AppKit'))
+    win.floating.show()
+    qt.processEvents()
+    assert win.floating.fullscreen_ready is None
+
+
 def test_gui_keeps_discovered_identity_through_preflight_and_resume(window, qt):
     from liltide.audio import InputIdentity
     win, _, _ = window
