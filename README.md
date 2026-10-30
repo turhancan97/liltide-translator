@@ -100,6 +100,10 @@ Read [AGENTS.md](AGENTS.md) and [CONTEXT.md](CONTEXT.md) before making changes. 
 
 Original project code, documentation, and brand assets are covered by the [MIT License](LICENSE). Third-party software retains its own terms. Liltide is a provisional name; package, domain, and trademark availability are not established.
 
+## Local macOS app
+
+Build a double-clickable **Liltide.app** for your own Mac with `python -m pip install -e ".[mac-app]"` followed by `python scripts/build_macos_app.py`. The app is generated in `dist/`; no terminal is needed for subsequent launches. Azure setup uses macOS Keychain. This is a local PoC, without Developer ID signing/notarization or completed live-bundle validation. See the [macOS app guide](docs/macos-app.md).
+
 ## Desktop GUI PoC
 
 The GUI provides source/device selection, Start/Stop, Pause/Resume, bilingual or English-only captions, optional text/JSONL exports, and timing details/session summaries. Install the optional GUI dependency in your activated virtual environment:
@@ -109,7 +113,7 @@ python -m pip install -e ".[gui]"
 liltide-gui
 ```
 
-Alternatively: `python -m liltide.gui`. Launch from the same terminal where you set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`; credentials are never entered or saved in the window. Refresh devices, choose your input, confirm that your resource is F0, then click Start translation. Opening the window or refreshing devices makes no cloud calls. See [GUI setup and limitations](docs/setup.md#desktop-gui-poc).
+Alternatively: `python -m liltide.gui`. On macOS, use **Azure setup…** to save credentials in macOS Keychain, or launch from a terminal with `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` set (environment takes precedence). Other platforms still use environment credentials. Refresh devices, choose your input, confirm that your resource is F0, then click Start translation. Opening the window or refreshing devices makes no cloud calls. See [GUI setup and limitations](docs/setup.md#desktop-gui-poc).
 
 This is an offline-tested desktop PoC; the user reports that it works well on their macOS setup. Detailed live checklist outcomes were not supplied. Pause/resume and display switching are offline-tested and reported working by the user on macOS; individual checklist results and duration were not supplied. A brief agent-operated synthetic macOS GUI check passed for exports, timing, pause/resume, and floating language/font synchronization after restarting the app. Brand styling, System/Light/Dark themes, caption sizing, and keyboard controls are implemented/offline-tested. A floating caption view is implemented/offline-tested, with synthetic macOS checks for themes, controls and exposure above an active normal Chrome window. The macOS fullscreen fix is implemented, its native settings passed readback checks, and the user confirmed it works on their setup after updating. Individual fullscreen/Spaces test steps and duration were not supplied; independent agent confirmation remains open. Other Spaces/apps and full accessibility remain unverified. Existing CLI features remain available.
 
@@ -117,6 +121,6 @@ Use **Pause** to release capture/cloud processing while retaining finalized capt
 
 Before Start, optionally check **Save text** and/or **Save JSONL**, then choose new filenames in an existing folder. Exports include both languages regardless of display. **Show caption timing** adds arrival details and clearly estimated delay; the last-session summary appears after Stop or failure. With exports unchecked, no files are saved.
 
-Choose **Theme → System / Light / Dark** and **Caption size → 12–26 pt** at any time. Setup/exports are grouped on the left; captions/session details are on the right, with resizable and scrollable panes. Keyboard shortcuts appear in the Start/Pause/Stop tooltips; Tab moves through controls. Appearance preferences stay in memory for this window.
+Choose **Theme → System / Light / Dark** and **Caption size → 12–26 pt** at any time. Setup/exports are grouped on the left; captions/session details are on the right, with resizable and scrollable panes. Keyboard shortcuts appear in the Start/Pause/Stop tooltips; Tab moves through controls. On macOS, display preferences are remembered; input identity persistence is opt-in. F0 consent and exports reset each launch. Other platforms keep preferences in memory.
 
 Click **Floating captions** in the header for a movable, resizable window that requests stay-on-top behavior. It shows the latest finalized caption and separate provisional text from the same session. Language/font controls synchronize with the main window; closing the floating view keeps translation running. Use the main window for Pause/Stop.

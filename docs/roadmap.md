@@ -49,7 +49,7 @@ Detailed original findings and repair evidence remain in the review. Offline/loc
 
 ## Deferred
 
-Offline inference, additional language pairs, SRT export, translated speech, speaker identification, meeting integrations, native applications, and packaged installers. No schedule or delivery date is promised. A roadmap entry does not authorize implementation of that milestone; use the user's current task scope.
+Offline inference, additional language pairs, SRT export, translated speech, speaker identification, meeting integrations, native rewrites, public installers, and signing/notarization. A local macOS Python app bundle is now separately authorized; see below. No schedule or delivery date is promised. A roadmap entry does not authorize implementation of that milestone; use the user's current task scope.
 
 ## GUI PoC stages
 
@@ -65,3 +65,14 @@ Offline inference, additional language pairs, SRT export, translated speech, spe
 - [ ] Arbitrary desktop Spaces, other apps/displays, complete keyboard/screen-reader accessibility, and actual OS theme-change notifications; remain unverified.
 
 The user authorized GUI stages one through four before the deferred release checks are complete. This does not declare the CLI or GUI cross-platform release-ready. Later GUI stages need a separately authorized task.
+
+## Local macOS app — authorized 2026-10-30
+
+- [x] Explicit Azure key/region setup using macOS Keychain, masked key entry, deletion and fail-closed backend errors; fake-backend tests.
+- [x] Allowlisted display preferences and opt-in persistent-input restoration with unique exact UID checks; isolated tests.
+- [x] Local PyInstaller app recipe, original icon, permission description, available dependency notices, and offline frozen-spawn/GUI diagnostic.
+- [ ] Finder/Dock launch and actual Keychain save/read/remove confirmation on the user's Mac.
+- [ ] Bundled real-device capture, live F0 session and Stop/quit validation (explicit operator invocation required).
+- [ ] Public distribution compliance review, signing/notarization, installers, clean-machine and other-Mac testing; remain later work.
+
+This local bundle does not change the deferred release/quality gates or declare v1 complete.

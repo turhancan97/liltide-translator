@@ -11,7 +11,7 @@ Read [CONTEXT.md](CONTEXT.md) for current progress, then the relevant authoritat
 
 ## Approved direction
 
-Liltide is a personal-use-first, open-source Python CLI for Polish-to-English captions from computer audio. Lectures take priority. Target Windows, macOS, and Linux; a PySide6 GUI follows a validated CLI. Native apps, offline inference, and additional languages are deferred.
+Liltide is a personal-use-first, open-source Python CLI for Polish-to-English captions from computer audio. Lectures take priority. Target Windows, macOS, and Linux; a PySide6 GUI follows a validated CLI. Native rewrites, public installers, offline inference, and additional languages are deferred. A local macOS Python app bundle is now separately authorized; see below.
 
 Keep Python 3.11+, a `src` package layout, Typer/Rich, SoundCard, NumPy with a dedicated resampler, and the Azure Speech SDK as the baseline. Keep capture, session coordination, providers, presentation, and exports separate. Permit a combined transcription/translation provider.
 
@@ -32,6 +32,8 @@ Use the Liltide name, approved blue `#3a7eab`, red `#cf4832`, and gray `#d1d3d4`
 - The user subsequently authorized [automated GitHub checks](docs/ci.md): offline tests/builds, dependency advisories, committed secrets, and local documentation links. Keep Actions permissions read-only, actions pinned to full SHAs, scanner downloads checksum-verified, and checkout credentials unpersisted. No cloud credentials, audio capture, deployment, or publishing in CI. Do not add scanner suppressions to hide findings; report hosted jobs as unverified until actually run. Branch protection/settings changes require a separate request.
 - The user subsequently authorized main protection and hosted-evidence/badge documentation. Main now requires pull requests, an up-to-date branch, and all five [required GitHub Actions checks](docs/ci.md#required-checks-on-main), enforced for administrators; force pushes/deletion are disabled and approval-review count is zero. Use feature branches and PRs for future publication; do not push directly to main or disable/bypass protections. Preserve exact required job names; further protection-policy changes require user authorization.
 - On 2026-10-30 the user authorized fixing macOS fullscreen floating captions. Keep native AppKit behavior local to the optional caption window, loaded lazily only for Cocoa; do not alter global activation policy, window levels, OS preferences, capture, or providers. Reapply/read back the policy when reopening and retain ordinary floating captions with a clear warning on failure. Native policy readback is not proof of fullscreen exposure; record actual desktop retest evidence separately.
+
+- On 2026-10-30 the user authorized the local macOS app recommendation: bundle the existing Python GUI, add explicit masked Azure setup using system Keychain, save allowlisted display preferences, and optionally remember the selected input by exact persistent UID. This supersedes the earlier environment-only/no-preferences restrictions for the macOS GUI only. Never use a plaintext Keychain fallback, persist F0 consent/export choices, silently replace devices, or start capture on launch. Keep CLI/other-platform credential behavior unchanged. Build/test locally; public distribution, signing/notarization and live cloud tests remain separate. See the [macOS app guide](docs/macos-app.md).
 
 ## Evidence and privacy
 
