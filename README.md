@@ -102,7 +102,7 @@ Original project code, documentation, and brand assets are covered by the [MIT L
 
 ## Local macOS app
 
-Build a double-clickable **Liltide.app** for your own Mac with `python -m pip install -e ".[mac-app]"` followed by `python scripts/build_macos_app.py`. The app is generated in `dist/`; no terminal is needed for subsequent launches. Azure setup uses macOS Keychain. This is a local PoC, without Developer ID signing/notarization or completed live-bundle validation. See the [macOS app guide](docs/macos-app.md).
+Build a double-clickable **Liltide.app** for your own Mac with `python -m pip install -e ".[mac-app]"` followed by `python scripts/build_macos_app.py`. The app is generated in `dist/`; no terminal is needed for subsequent launches. Azure setup uses macOS Keychain. This is a local PoC, without Developer ID signing/notarization. The user confirms it works on their macOS setup; detailed live-bundle checklist outcomes remain unrecorded. See the [macOS app guide](docs/macos-app.md).
 
 ## Desktop GUI PoC
 
