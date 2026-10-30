@@ -1,6 +1,7 @@
 """Optional floating view of the existing session; never owns processing."""
+import sys
 from PySide6.QtCore import Qt, Signal, QSignalBlocker
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit
 
 from liltide.gui_controls import Dropdown
 from liltide.formatting import timestamp
@@ -19,6 +20,7 @@ class FloatingCaptions(QWidget):
         self.resize(720, 380)
         self.setMinimumSize(480, 280)
         self.latest_final = self.provisional = None
+        self.fullscreen_ready = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
         row = QHBoxLayout()
@@ -56,11 +58,30 @@ class FloatingCaptions(QWidget):
         self.provisional_text.setMaximumHeight(110)
         self.provisional_text.setPlainText('Provisional: —')
         layout.addWidget(self.provisional_text)
-        footer = QLabel('Same session as the main window. Closing this view keeps translation running.')
-        footer.setWordWrap(True)
-        layout.addWidget(footer)
+        self.footer = QLabel()
+        self.footer.setWordWrap(True)
+        layout.addWidget(self.footer)
+        self.update_footer()
         self.view.currentIndexChanged.connect(self.emit_view)
         self.caption_size.currentIndexChanged.connect(self.emit_size)
+
+    def update_footer(self):
+        text = 'Same session as the main window. Closing this view keeps translation running.'
+        if self.fullscreen_ready is False:
+            text += ' Fullscreen visibility could not be enabled on this Mac.'
+        self.footer.setText(text)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if sys.platform == 'darwin' and QApplication.platformName() == 'cocoa':
+            try:
+                from liltide.macos_window import enable_fullscreen_panel
+                self.fullscreen_ready = enable_fullscreen_panel(int(self.winId()))
+            except Exception:
+                # Preserve ordinary floating captions; do not expose native
+                # pointers/errors or alter global application/window policy.
+                self.fullscreen_ready = False
+            self.update_footer()
 
     def emit_view(self):
         self.view_changed.emit(self.view.currentData())
