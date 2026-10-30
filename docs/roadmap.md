@@ -71,7 +71,8 @@ The user authorized GUI stages one through four before the deferred release chec
 - [x] Explicit Azure key/region setup using macOS Keychain, masked key entry, deletion and fail-closed backend errors; fake-backend tests.
 - [x] Allowlisted display preferences and opt-in persistent-input restoration with unique exact UID checks; isolated tests.
 - [x] Local PyInstaller app recipe, original icon, permission description, available dependency notices, and offline frozen-spawn/GUI diagnostic.
-- [ ] Finder/Dock launch and actual Keychain save/read/remove confirmation on the user's Mac.
+- [x] User-reported local macOS app operation after merge (2026-10-30); individual checklist outcomes and duration unspecified.
+- [ ] Detailed Finder/Dock launch and actual Keychain save/read/remove checklist evidence on the user's Mac.
 - [ ] Bundled real-device capture, live F0 session and Stop/quit validation (explicit operator invocation required).
 - [ ] Public distribution compliance review, signing/notarization, installers, clean-machine and other-Mac testing; remain later work.
 
