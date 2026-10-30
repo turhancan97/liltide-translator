@@ -124,3 +124,11 @@ Before Start, optionally check **Save text** and/or **Save JSONL**, then choose 
 Choose **Theme → System / Light / Dark** and **Caption size → 12–26 pt** at any time. Setup/exports are grouped on the left; captions/session details are on the right, with resizable and scrollable panes. Keyboard shortcuts appear in the Start/Pause/Stop tooltips; Tab moves through controls. On macOS, display preferences are remembered; input identity persistence is opt-in. F0 consent and exports reset each launch. Other platforms keep preferences in memory.
 
 Click **Floating captions** in the header for a movable, resizable window that requests stay-on-top behavior. It shows the latest finalized caption and separate provisional text from the same session. Language/font controls synchronize with the main window; closing the floating view keeps translation running. Use the main window for Pause/Stop.
+
+## Future work
+
+Selectable spoken and translation languages are planned, with Polish → English remaining the default. This is future work; the app currently supports only Polish → English. See the [language-selection roadmap](docs/roadmap.md#future-work-language-selection) for scope and other planned improvements.
+
+## Contributions welcome
+
+We welcome improvements through pull requests—bug fixes, documentation, accessibility, tests, and new features. Read [AGENTS.md](AGENTS.md) for project decisions and [the CI guide](docs/ci.md) for verification requirements. Keep credentials, recordings, and transcripts out of contributions.
