@@ -24,6 +24,13 @@ class CloudConfig:
             raise AudioError("Confirm the resource is Azure Speech F0 in Azure, then pass --confirm-f0. This flag cannot verify your billing tier.")
         key = os.environ.get("AZURE_SPEECH_KEY", "").strip()
         region = os.environ.get("AZURE_SPEECH_REGION", "").strip()
+        return cls.from_values(key, region, confirm_f0, segmentation_silence_ms)
+
+    @classmethod
+    def from_values(cls, key, region, confirm_f0=False, segmentation_silence_ms=None):
+        if not confirm_f0:
+            raise AudioError("Confirm the resource is Azure Speech F0 in Azure, then pass --confirm-f0.")
+        key, region = key.strip(), region.strip()
         if not key or not region:
             raise AudioError("Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION locally. Never share keys in chat or CLI flags.")
         if not re.fullmatch(r"[a-z][a-z0-9-]{1,63}", region):

@@ -128,9 +128,12 @@ class SessionWorker(QThread):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, *, discovery_factory=DiscoveryWorker, worker_factory=SessionWorker):
+    def __init__(self, *, discovery_factory=DiscoveryWorker, worker_factory=SessionWorker,
+                 credentials=None, preferences=None):
         super().__init__()
         self.discovery_factory, self.worker_factory = discovery_factory, worker_factory
+        self.credentials, self.preferences = credentials, preferences
+        self.pending_input = preferences.remembered_input() if preferences is not None else None
         self.discovery = self.worker = None
         self.closing = False
         self.available_devices = []
@@ -207,6 +210,12 @@ class MainWindow(QMainWindow):
         device_label.setBuddy(self.device)
         audio.addWidget(device_label)
         audio.addWidget(self.device)
+        self.remember_input = QCheckBox('Remember selected input after Start')
+        self.remember_input.setToolTip('Opt in to storing this input’s persistent UID locally. Missing or ambiguous devices are never replaced.')
+        self.remember_input.setVisible(preferences is not None)
+        self.remember_input.setChecked(self.pending_input is not None)
+        self.remember_input.toggled.connect(self.forget_input)
+        audio.addWidget(self.remember_input)
         self.refresh = QPushButton('Refresh devices')
         self.refresh.clicked.connect(self.refresh_devices)
         audio.addWidget(self.refresh)
@@ -216,6 +225,10 @@ class MainWindow(QMainWindow):
         notice = QLabel('Start sends selected audio to Azure. No audio recording. F0 confirmation is your assertion, not a billing-tier check.')
         notice.setWordWrap(True)
         audio.addWidget(notice)
+        self.azure_setup = QPushButton('Azure setup…')
+        self.azure_setup.setVisible(credentials is not None)
+        self.azure_setup.clicked.connect(self.open_azure_setup)
+        audio.addWidget(self.azure_setup)
         self.confirm = QCheckBox('I verified this resource uses free F0')
         self.confirm.setAccessibleName('Confirm Azure resource uses the free F0 tier')
         audio.addWidget(self.confirm)
@@ -299,7 +312,9 @@ class MainWindow(QMainWindow):
         self.state_label.setObjectName('state')
         self.state_label.setAccessibleName('Session state')
         reading.addWidget(self.state_label)
-        self.status = QLabel('Refresh devices to select an input. Credentials are read from your environment on Start.')
+        self.status = QLabel('Refresh devices to select an input. ' +
+            ('Use Azure setup to save credentials in macOS Keychain.' if credentials else
+             'Credentials are read from your environment on Start.'))
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         self.status.setAccessibleName('Session status')
@@ -342,7 +357,8 @@ class MainWindow(QMainWindow):
             shortcut.activated.connect(button.click)
             self.shortcuts.append(shortcut)
             button.setToolTip(f'{hint} ({QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)})')
-        focus_order = [self.theme, self.floating_button, self.source, self.device, self.refresh, self.confirm]
+        focus_order = [self.theme, self.floating_button, self.source, self.device,
+                       self.remember_input, self.refresh, self.azure_setup, self.confirm]
         for enabled, path, browse in self.export_controls.values():
             focus_order.extend((enabled, path, browse))
         focus_order.extend((self.start, self.pause, self.stop, self.view, self.caption_size,
@@ -350,10 +366,39 @@ class MainWindow(QMainWindow):
         for first, second in zip(focus_order, focus_order[1:]):
             QWidget.setTabOrder(first, second)
         self.source.currentIndexChanged.connect(self.populate_devices)
+        if self.preferences is not None:
+            for name, value in self.preferences.load().items():
+                widget = getattr(self, name)
+                widget.setCurrentIndex(widget.findData(value))
+            for name in ('theme', 'source', 'view', 'caption_size'):
+                getattr(self, name).currentIndexChanged.connect(self.save_preferences)
         self.timer = QTimer(self)
         self.timer.setInterval(40)
         self.timer.timeout.connect(self.poll)
         self.timer.start()
+
+    def save_preferences(self):
+        if self.preferences is not None:
+            try:
+                self.preferences.save({name: getattr(self, name).currentData()
+                    for name in ('theme', 'source', 'view', 'caption_size')})
+            except AudioError as exc:
+                self.status.setText(str(exc))
+
+    def open_azure_setup(self):
+        if self.credentials is not None and self.worker is None:
+            from liltide.gui_settings import AzureSetupDialog
+            dialog = AzureSetupDialog(self.credentials, self)
+            dialog.exec()
+            dialog.deleteLater()
+
+    def forget_input(self, checked):
+        if not checked and self.preferences is not None:
+            self.pending_input = None
+            try:
+                self.preferences.remember_input()
+            except AudioError as exc:
+                self.status.setText(str(exc))
 
     def system_theme(self):
         scheme = QApplication.styleHints().colorScheme()
@@ -422,6 +467,9 @@ class MainWindow(QMainWindow):
         old = self.device.currentData(role)
         self.device.clear()
         source = self.source.currentData()
+        remembered = self.pending_input
+        if self.available_devices:
+            self.pending_input = None
         matches = []
         for device in self.available_devices:
             if device.kind in ('routed input', source):
@@ -430,7 +478,10 @@ class MainWindow(QMainWindow):
                 self.device.setItemData(self.device.count() - 1, selection, role)
                 same = (old.uid == selection.uid if isinstance(old, InputIdentity) and
                         isinstance(selection, InputIdentity) else old == selection)
-                if old is not None and same:
+                restore = (old is None and remembered is not None and
+                    remembered[0] == source and isinstance(selection, InputIdentity) and
+                    selection.uid == remembered[1])
+                if (old is not None and same) or restore:
                     matches.append(self.device.count() - 1)
         index = matches[0] if len(matches) == 1 else -1
         self.device.setCurrentIndex(index)
@@ -442,7 +493,8 @@ class MainWindow(QMainWindow):
         if self.worker or self.discovery or self.closing:
             return
         try:
-            config = CloudConfig.from_environment(self.confirm.isChecked())
+            config = (self.credentials.config(self.confirm.isChecked()) if self.credentials
+                      else CloudConfig.from_environment(self.confirm.isChecked()))
             device = self.device.currentData()
             if not device:
                 raise AudioError('Select a capture device first. Use Refresh devices if the list is empty.')
@@ -454,6 +506,10 @@ class MainWindow(QMainWindow):
                         raise AudioError(f'Choose a {kind} export filename or turn off that export.')
                     paths[f'export_{kind}'] = value
             selected = next((item for item in self.available_devices if item.id == device), None)
+            if self.preferences is not None and self.remember_input.isChecked():
+                if selected is None or not selected.uid:
+                    raise AudioError('This input has no persistent identity. Turn off Remember selected input to continue.')
+                self.preferences.remember_input(self.source.currentData(), selected.uid)
             worker = self.worker_factory(selected.selection if selected else device,
                                          self.source.currentData(), config, **paths)
         except AudioError as exc:
@@ -472,7 +528,7 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def set_running(self, running):
-        for widget in (self.start, self.source, self.device, self.refresh, self.confirm):
+        for widget in (self.start, self.source, self.device, self.refresh, self.confirm, self.azure_setup, self.remember_input):
             widget.setEnabled(not running)
         self.stop.setEnabled(running)
         self.pause.setEnabled(False)
@@ -518,6 +574,7 @@ class MainWindow(QMainWindow):
             discovery.wait()
             self.available_devices = discovery.devices
             selection_lost = self.populate_devices()
+            self.pending_input = None
             if discovery.error or not selection_lost:
                 self.status.setText(discovery.error or f'{len(self.available_devices)} input(s) found. Select a device before starting.')
             self.state_label.setText('State: Error' if discovery.error else 'State: Ready')
@@ -634,6 +691,10 @@ class MainWindow(QMainWindow):
 
 def launch():
     app = QApplication.instance() or QApplication(sys.argv)
-    window = MainWindow()
+    options = {}
+    if sys.platform == 'darwin':
+        from liltide.gui_settings import MacCredentials, Preferences
+        options = dict(credentials=MacCredentials(), preferences=Preferences())
+    window = MainWindow(**options)
     window.show()
     return app.exec()

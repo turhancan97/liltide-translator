@@ -20,7 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "markdown-it-py>=4.2,<5"]
-gui = ["PySide6>=6.8,<7"]
+gui = ["PySide6>=6.8,<7", "keyring>=25.6,<26; sys_platform == 'darwin'"]
+mac-app = ["PySide6>=6.8,<7", "keyring>=25.6,<26; sys_platform == 'darwin'", "pyinstaller>=6.22,<7; sys_platform == 'darwin'"]
 
 [project.scripts]
 liltide = "liltide.cli:app"

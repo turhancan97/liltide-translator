@@ -85,7 +85,7 @@ $env:AZURE_SPEECH_REGION = "westeurope"
 $env:AZURE_SPEECH_KEY = [System.Net.NetworkCredential]::new("", (Read-Host "Azure Speech key" -AsSecureString)).Password
 ```
 
-Liltide reads environment variables, not `.env` files. It does not persist keys. Run explicitly:
+The CLI reads environment variables, not `.env` files, and does not persist keys. The macOS GUI optionally saves credentials in system Keychain; see the [macOS app guide](macos-app.md). Run explicitly:
 
 ```console
 liltide run --source system --device DEVICE_ID --confirm-f0
@@ -221,12 +221,12 @@ Metadata is an explicit allowlist: no credentials, environment values, Azure reg
 GUI stages one through four are implemented with optional PySide6; it does not replace the CLI. Installation and offscreen fake-provider tests passed locally on macOS arm64/Python 3.13.7 with PySide6 6.12.0. The user subsequently reported that the GUI works well on their macOS setup; individual live checklist results and duration were not supplied. Desktop accessibility and Windows/Linux remain unverified.
 
 1. Activate your existing virtual environment and run `python -m pip install -e ".[gui]"`.
-2. Set the same local `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` environment variables used by the CLI. Launch from that terminal with `liltide-gui` or `python -m liltide.gui` so the process inherits them. The GUI does not load `.env` files automatically.
+2. Launch with `liltide-gui` or `python -m liltide.gui`. On macOS, **Azure setup…** can save your key/region in system Keychain. Alternatively set both `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` in the launching terminal; environment takes precedence. Other platforms still require environment credentials. No `.env` files are automatically loaded. For a Finder/Dock launch, see the [local macOS app guide](macos-app.md).
 3. Click **Refresh devices**, choose **System audio** or **Microphone**, then select the input. On macOS all routed inputs are shown for either type; explicitly choose BlackHole/your virtual device for system audio. Keep the existing multi-output playback routing so you can hear the source. Discovery is not a routing/permission check.
 4. Verify your Azure resource is F0, check the F0 confirmation box, then click **Start translation**. This sends selected audio to Azure. The checkbox is your assertion, not a billing-tier check. There is no paid fallback.
 5. Finalized Polish/English captions accumulate in the text area; provisional text is separate and labeled. **Stop** requests cleanup and drains remaining finalized captions. Closing an active window waits for cleanup too. Startup/drain/native shutdown can take several seconds; the UI does not force-terminate a session thread.
 
-Opening the window and refreshing devices do not record audio or contact Azure. No audio files or settings are saved by the GUI; transcript files are saved only when explicitly enabled before Start. Prior finalized text remains visible across starts until the window closes; there is no disk recovery. GUI controls currently use the service-default segmentation setting. Use the CLI for WAV input and segmentation tuning; optional exports and timing summaries are also available in the GUI. System/Light/Dark themes, brand styling, and caption sizing are available; floating captions are also available.
+Opening the window and refreshing devices do not record audio or contact Azure. No audio files are saved by the GUI. On macOS only, allowlisted display preferences are saved and input-UID remembering is opt-in; credentials are saved only through the explicit Keychain setup action. F0 confirmation and export choices reset each launch; transcript files are saved only when explicitly enabled before Start. Prior finalized text remains visible across starts until the window closes; there is no disk recovery. GUI controls currently use the service-default segmentation setting. Use the CLI for WAV input and segmentation tuning; optional exports and timing summaries are also available in the GUI. System/Light/Dark themes, brand styling, and caption sizing are available; floating captions are also available.
 
 The GUI runs discovery and session coordination off the UI thread, reusing the existing capture and provider subprocesses. Stop also cancels reconnect waits. It coalesces provisional updates and bounds pending final-caption delivery to 256 events; overflow stops translation visibly rather than growing a hidden queue. Previously displayed captions remain. Final transcript history stays in memory and can grow with session length, as in the CLI; the deferred long-session memory check is still needed. Device discovery/native operations may delay closing until their own return/timeout.
 
