@@ -40,12 +40,12 @@ class MacCredentials:
         except Exception:
             raise AudioError('Could not remove the saved credential. It may be absent or Keychain access was denied.') from None
 
-    def config(self, confirm_f0):
+    def config(self, confirm_f0, segmentation_silence_ms=None):
         if not confirm_f0:
             return CloudConfig.from_values('', '', False)
         # An incomplete environment must fail, never silently mix two accounts.
         if os.environ.get('AZURE_SPEECH_KEY') or os.environ.get('AZURE_SPEECH_REGION'):
-            return CloudConfig.from_environment(confirm_f0)
+            return CloudConfig.from_environment(confirm_f0, segmentation_silence_ms)
         try:
             value = self.backend_factory().get_password(self.SERVICE, self.ACCOUNT)
             data = json.loads(value) if value else {}
@@ -56,7 +56,7 @@ class MacCredentials:
             raise AudioError('Cannot read Azure credentials from macOS Keychain. Open Azure setup or allow Keychain access.') from None
         if not key or not region:
             raise AudioError('Open Azure setup to save your key and region in macOS Keychain.')
-        return CloudConfig.from_values(key, region, confirm_f0)
+        return CloudConfig.from_values(key, region, confirm_f0, segmentation_silence_ms)
 
 
 class Preferences:
