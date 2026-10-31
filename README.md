@@ -123,6 +123,8 @@ Before Start, optionally check **Save text** and/or **Save JSONL**, then choose 
 
 Choose **Theme → System / Light / Dark** and **Caption size → 12–26 pt** at any time. Setup/exports are grouped on the left; captions/session details are on the right, with resizable and scrollable panes. Keyboard shortcuts appear in the Start/Pause/Stop tooltips; Tab moves through controls. On macOS, display preferences are remembered; input identity persistence is opt-in. F0 consent and exports reset each launch. Other platforms keep preferences in memory.
 
+Before Start, optionally enable **Custom phrase pause (experimental)** in Audio setup and set **Silence threshold** (100–5000 ms; initially 300 ms). Leave it unchecked for Azure’s default. The setting is locked during a session, recorded in enabled exports, and resets on a new app launch. Shorter pauses may reduce translation context; this is not a latency guarantee.
+
 Click **Floating captions** in the header for a movable, resizable window that requests stay-on-top behavior. It shows the latest finalized caption and separate provisional text from the same session. Language/font controls synchronize with the main window; closing the floating view keeps translation running. Use the main window for Pause/Stop.
 
 ## Future work

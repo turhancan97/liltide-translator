@@ -152,3 +152,16 @@ def test_saved_credentials_reach_start_only_after_f0_and_device_selection(creden
     assert len(configs) == 1 and 'Azure setup' in win.status.text()
     win.close()
     app.processEvents()
+
+
+@pytest.mark.parametrize('environment', [False, True])
+def test_segmentation_config_works_with_keychain_and_environment(credentials, monkeypatch, environment):
+    manager, backend = credentials
+    manager.save('synthetic', 'westeurope')
+    if environment:
+        monkeypatch.setenv('AZURE_SPEECH_KEY', 'environment-synthetic')
+        monkeypatch.setenv('AZURE_SPEECH_REGION', 'eastus')
+    assert manager.config(True, 300).segmentation_silence_ms == 300
+    assert manager.config(True).segmentation_silence_ms is None
+    with pytest.raises(AudioError, match='between 100 and 5000'):
+        manager.config(True, 99)
