@@ -911,3 +911,46 @@ def test_gui_keeps_discovered_identity_through_preflight_and_resume(window, qt):
     until(qt, lambda: len(opened) == 2)
     assert bound == [expected]
     assert opened == [expected, expected]
+
+
+@pytest.mark.parametrize('silence', [None, 100, 300, 5000])
+def test_gui_segmentation_frozen_through_pause_and_recorded_in_export(window, qt, tmp_path, silence):
+    import json
+    win, sources, providers = window
+    assert not win.custom_segmentation.isChecked()
+    assert not win.segmentation_silence.isEnabled()
+    assert win.segmentation_silence.value() == 300
+    if silence is not None:
+        win.custom_segmentation.setChecked(True)
+        win.segmentation_silence.setValue(silence)
+        assert win.segmentation_silence.isEnabled()
+    path = tmp_path / 'segmentation.jsonl'
+    enable_export(win, 'jsonl', path)
+    start_running(win, qt)
+    assert win.worker.config.segmentation_silence_ms == silence
+    assert not win.custom_segmentation.isEnabled() and not win.segmentation_silence.isEnabled()
+    until(qt, lambda: 'EN: Hello' in win.transcript.toPlainText())
+    win.pause_session()
+    until(qt, lambda: win.state_label.text() == 'State: Paused')
+    assert not win.custom_segmentation.isEnabled() and not win.segmentation_silence.isEnabled()
+    win.pause_session()
+    until(qt, lambda: len(providers) == 2 and win.state_label.text() == 'State: Running')
+    assert win.worker.config.segmentation_silence_ms == silence
+    win.stop_session()
+    until(qt, lambda: win.worker is None)
+    assert win.custom_segmentation.isEnabled()
+    assert win.segmentation_silence.isEnabled() == (silence is not None)
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    headers = [row for row in rows if row['type'] == 'session']
+    assert len(headers) == 1
+    assert headers[0]['segmentation_silence_ms'] == silence
+    assert headers[0]['segmentation_mode'] == ('service_default' if silence is None else 'explicit_request')
+
+
+def test_gui_segmentation_unchecked_does_not_apply_numeric_value(window, qt):
+    win, sources, providers = window
+    win.custom_segmentation.setChecked(True)
+    win.segmentation_silence.setValue(500)
+    win.custom_segmentation.setChecked(False)
+    start_running(win, qt)
+    assert win.worker.config.segmentation_silence_ms is None

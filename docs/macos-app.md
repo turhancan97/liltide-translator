@@ -30,7 +30,7 @@ On macOS, the GUI explicitly uses the system Keychain backend, with service `org
 
 Theme, caption size, view and source type are saved through Qt's platform settings (`Liltide` / `Liltide`). **Remember selected input after Start** is optional: it saves the selected persistent device UID and source type locally when Start is accepted. On a later launch/Refresh, only a unique exact UID match can be restored. Missing/ambiguous devices remain unselected; names/defaults/numeric IDs are never used as a replacement. Device UIDs are local identifying settings, not export metadata. Uncheck Remember to remove that saved identity.
 
-F0 confirmation, export paths/toggles, transcript history, audio, window geometry, timing toggle and floating-window visibility are not saved. Startup remains idle, with no automatic discovery or capture. Windows/Linux keep their current environment-credential and in-memory GUI behavior.
+F0 confirmation, custom phrase-pause settings, export paths/toggles, transcript history, audio, window geometry, timing toggle and floating-window visibility are not saved. Startup remains idle, with no automatic discovery or capture. Windows/Linux keep their current environment-credential and in-memory GUI behavior.
 
 ## Verification and distribution limits
 

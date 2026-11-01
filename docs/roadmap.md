@@ -88,3 +88,8 @@ The user authorized GUI stages one through four before the deferred release chec
 - [ ] Public distribution compliance review, signing/notarization, installers, clean-machine and other-Mac testing; remain later work.
 
 This local bundle does not change the deferred release/quality gates or declare v1 complete.
+
+## GUI phrase-pause control — authorized 2026-10-31
+
+- [x] Optional custom 100–5000 ms silence threshold (initially 300 ms), preserving the unchecked Azure-default behavior; session-locked controls and existing export metadata.
+- [ ] Repeatable live quality/latency evidence for the GUI setting; the earlier short comparison does not establish a universal default. Existing user-deferred accuracy/long-session checks remain deferred.

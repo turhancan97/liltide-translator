@@ -10,7 +10,7 @@ from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel,
                               QFileDialog, QLineEdit, QMainWindow, QPlainTextEdit,
-                              QPushButton, QVBoxLayout, QWidget, QGroupBox, QScrollArea, QSplitter)
+                              QPushButton, QVBoxLayout, QWidget, QGroupBox, QScrollArea, QSplitter, QSpinBox)
 
 from liltide.audio import AudioError, InputIdentity, SoundCardBackend
 from liltide.formatting import timestamp
@@ -232,6 +232,27 @@ class MainWindow(QMainWindow):
         self.confirm = QCheckBox('I verified this resource uses free F0')
         self.confirm.setAccessibleName('Confirm Azure resource uses the free F0 tier')
         audio.addWidget(self.confirm)
+        self.custom_segmentation = QCheckBox('Custom phrase pause (experimental)')
+        self.custom_segmentation.setToolTip('Unchecked uses Azure’s service default. This is a requested silence threshold, not a caption-delay guarantee.')
+        audio.addWidget(self.custom_segmentation)
+        pause_row = QHBoxLayout()
+        pause_label = QLabel('Silence &threshold')
+        self.segmentation_silence = QSpinBox()
+        self.segmentation_silence.setRange(100, 5000)
+        self.segmentation_silence.setSingleStep(100)
+        self.segmentation_silence.setValue(300)
+        self.segmentation_silence.setSuffix(' ms')
+        self.segmentation_silence.setMinimumWidth(130)
+        self.segmentation_silence.setAccessibleName('Phrase segmentation silence threshold in milliseconds')
+        pause_label.setBuddy(self.segmentation_silence)
+        pause_row.addWidget(pause_label)
+        pause_row.addWidget(self.segmentation_silence)
+        audio.addLayout(pause_row)
+        pause_hint = QLabel('Default: Azure decides. Shorter pauses may produce smaller captions and reduce translation context. Change before Start.')
+        pause_hint.setWordWrap(True)
+        audio.addWidget(pause_hint)
+        self.custom_segmentation.toggled.connect(self.update_segmentation_controls)
+        self.update_segmentation_controls()
         setup_layout.addWidget(audio_group)
         export_group = QGroupBox('Optional exports')
         exports = QVBoxLayout(export_group)
@@ -358,7 +379,8 @@ class MainWindow(QMainWindow):
             self.shortcuts.append(shortcut)
             button.setToolTip(f'{hint} ({QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)})')
         focus_order = [self.theme, self.floating_button, self.source, self.device,
-                       self.remember_input, self.refresh, self.azure_setup, self.confirm]
+                       self.remember_input, self.refresh, self.azure_setup, self.confirm,
+                       self.custom_segmentation, self.segmentation_silence]
         for enabled, path, browse in self.export_controls.values():
             focus_order.extend((enabled, path, browse))
         focus_order.extend((self.start, self.pause, self.stop, self.view, self.caption_size,
@@ -493,8 +515,9 @@ class MainWindow(QMainWindow):
         if self.worker or self.discovery or self.closing:
             return
         try:
-            config = (self.credentials.config(self.confirm.isChecked()) if self.credentials
-                      else CloudConfig.from_environment(self.confirm.isChecked()))
+            silence = self.segmentation_silence.value() if self.custom_segmentation.isChecked() else None
+            config = (self.credentials.config(self.confirm.isChecked(), silence) if self.credentials
+                      else CloudConfig.from_environment(self.confirm.isChecked(), silence))
             device = self.device.currentData()
             if not device:
                 raise AudioError('Select a capture device first. Use Refresh devices if the list is empty.')
@@ -530,10 +553,16 @@ class MainWindow(QMainWindow):
     def set_running(self, running):
         for widget in (self.start, self.source, self.device, self.refresh, self.confirm, self.azure_setup, self.remember_input):
             widget.setEnabled(not running)
+        self.update_segmentation_controls()
         self.stop.setEnabled(running)
         self.pause.setEnabled(False)
         self.pause.setText('Pause')
         self.update_export_controls()
+
+    def update_segmentation_controls(self):
+        idle = self.worker is None and not self.closing
+        self.custom_segmentation.setEnabled(idle)
+        self.segmentation_silence.setEnabled(idle and self.custom_segmentation.isChecked())
 
     def update_export_controls(self):
         for enabled, path, browse in self.export_controls.values():

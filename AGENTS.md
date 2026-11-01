@@ -35,6 +35,8 @@ Use the Liltide name, approved blue `#3a7eab`, red `#cf4832`, and gray `#d1d3d4`
 
 - On 2026-10-30 the user authorized the local macOS app recommendation: bundle the existing Python GUI, add explicit masked Azure setup using system Keychain, save allowlisted display preferences, and optionally remember the selected input by exact persistent UID. This supersedes the earlier environment-only/no-preferences restrictions for the macOS GUI only. Never use a plaintext Keychain fallback, persist F0 consent/export choices, silently replace devices, or start capture on launch. Keep CLI/other-platform credential behavior unchanged. Build/test locally; public distribution, signing/notarization and live cloud tests remain separate. See the [macOS app guide](docs/macos-app.md).
 
+- On 2026-10-31 the user authorized an app control for the existing optional segmentation silence threshold. Preserve Azure-default behavior when unchecked; allow 100–5000 ms with 300 ms as the initial custom value. Freeze the request for the entire session, including pause/resume/recovery, and reuse existing export metadata. Do not persist this setting or change the default provider behavior; no live cloud test is implied.
+
 ## Evidence and privacy
 
 - Distinguish planned, implemented, and verified behavior. Never infer Windows/Linux support from a macOS run or source inspection. Record OS, architecture, runtime, and test details for platform claims.
